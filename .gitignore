@@ -1,0 +1,22 @@
+﻿# Backend - EXCLUDE
+backend/
+app/
+*.py
+*.pyc
+__pycache__/
+venv/
+.venv/
+.env
+
+# Node modules
+node_modules/
+dist/
+dist-ssr/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
