@@ -1,22 +1,44 @@
-﻿# Backend - EXCLUDE
+@"
+# Backend - EXCLUDE ALL
 backend/
 app/
-*.py
-*.pyc
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
 venv/
 .venv/
-.env
+pip-log.txt
+pip-delete-this-directory.txt
 
 # Node modules
 node_modules/
 dist/
 dist-ssr/
+*.local
+
+# Environment files
+.env
+.env.local
+.env.*.local
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+"@ | Out-File -FilePath .gitignore -Encoding utf8

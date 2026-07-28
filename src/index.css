@@ -1,11 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;500;600&display=swap');
-@import 'tailwindcss';
+﻿@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-@theme {
-  --font-sans: 'DM Sans', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-display: 'Rajdhani', sans-serif;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --background: #060d06;
@@ -38,15 +35,14 @@ html {
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans);
+  font-family: 'DM Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
   margin: 0;
   padding: 0;
-  font-weight: 500; /* Ye line add karo - Text ab light nahi lagega */
+  font-weight: 500;
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -64,7 +60,6 @@ body {
   opacity: 1;
 }
 
-/* Glow utilities */
 .glow-green {
   box-shadow: 0 0 20px rgba(57, 255, 20, 0.15), 0 0 40px rgba(57, 255, 20, 0.05);
 }
@@ -75,36 +70,34 @@ body {
   text-shadow: 0 0 20px rgba(57, 255, 20, 0.5);
 }
 
-/* Typography Fixes for Boldness */
 h1, .text-4xl {
   font-size: clamp(2.5rem, 8vw, 4.5rem);
   line-height: 1.1;
-  font-weight: 800 !important; /* Extra Bold */
-  letter-spacing: -0.02em; /* Thoda tight spacing for sharp look */
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
 }
 
 h2, .text-3xl {
   font-size: clamp(1.75rem, 5vw, 2.5rem);
   line-height: 1.2;
-  font-weight: 700 !important; /* Bold */
+  font-weight: 700 !important;
 }
 
 h3, .text-2xl {
   font-size: clamp(1.25rem, 3vw, 1.75rem);
-  font-weight: 600 !important; /* Semi-Bold */
+  font-weight: 600 !important;
 }
 
 p, .text-base {
-  font-weight: 500; /* Paragraphs bhi ab clear honge */
-  color: #d4ecd4; /* Transparent rgba ki jagah solid light green use karo */
+  font-weight: 500;
+  color: #d4ecd4;
 }
 
 a, .navbar-tab {
-  font-weight: 600; /* Links bhi ab clear dikhenge */
+  font-weight: 600;
   color: var(--foreground);
 }
 
-/* Animations */
 @keyframes scanline {
   0% { transform: translateY(-100%); }
   100% { transform: translateY(100vh); }
@@ -153,7 +146,7 @@ a, .navbar-tab {
 }
 
 .font-display {
-  font-family: var(--font-display);
+  font-family: 'Rajdhani', sans-serif;
 }
 
 .grid-overlay {
@@ -173,7 +166,7 @@ a, .navbar-tab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--font-mono);
+  font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -197,25 +190,15 @@ a, .navbar-tab {
   background: linear-gradient(90deg, #ff3030, #ef4444);
 }
 
-/* ========================================= */
-/* ===== LAYOUT FIXES (ADD THIS AT END) ==== */
-/* ========================================= */
-
-/* ========================================= */
-/* ===== TIGHTER LAYOUT FIXES (REPLACE OLD ONE) ==== */
-/* ========================================= */
-
-/* Sections ke beech ab kam space hoga (2rem = 32px) */
 section, .page-section {
   position: relative;
   width: 100%;
-  padding-top: 2rem;     /* Pehle 4rem tha, ab 2rem */
-  padding-bottom: 2rem;  /* Pehle 4rem tha, ab 2rem */
+  padding-top: 2rem;
+  padding-bottom: 2rem;
   z-index: 1;
   display: block;
 }
 
-/* Content ko center rakhne ke liye */
 .container-center {
   max-width: 1280px;
   margin-left: auto;
@@ -225,7 +208,6 @@ section, .page-section {
   width: 100%;
 }
 
-/* Hero Wrapper (Waisa hi) */
 .hero-wrapper {
   position: relative;
   width: 100%;
@@ -234,11 +216,10 @@ section, .page-section {
   overflow: hidden;
 }
 
-/* Mobile pe thoda aur kam space taaki compact lage */
 @media (max-width: 768px) {
   section, .page-section {
-    padding-top: 1.5rem;    /* ~24px */
-    padding-bottom: 1.5rem; /* ~24px */
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
   }
   .container-center {
     padding-left: 1rem;
