@@ -1,8 +1,10 @@
 // src/services/api.js
-const API_URL = import.meta.env.VITE_API_URL;
-const API_KEY = import.meta.env.VITE_API_KEY;
+const API_URL = "https://predict-6a872ace3e12cb7a24c0e991-dproatj77a-oc.a.run.app";
+const API_KEY = "ul_01786bfbd9c0e301e77a5693dcc13a5671d98597";
 
 export const predictDisease = async (imageFile) => {
+  console.log("📤 API_URL:", API_URL);
+
   const formData = new FormData();
   formData.append('file', imageFile);
 
