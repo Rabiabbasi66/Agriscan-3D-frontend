@@ -1,4 +1,5 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react'
+import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { predictDisease } from '../services/api';
 
 const DISEASE_POOL = [
   { label: 'Leaf Blight (Alternaria)', severity: 'high' },
@@ -9,191 +10,169 @@ const DISEASE_POOL = [
   { label: 'Septoria Leaf Spot', severity: 'medium' },
   { label: 'Fusarium Wilt', severity: 'high' },
   { label: 'Healthy Crop', severity: 'healthy' },
-]
+];
 
 const SEV_COLOR = {
   high: '#ff2020',
   medium: '#ff9020',
   low: '#facc15',
   healthy: '#39ff14',
-}
-
-function randomDetections() {
-  const count = 2 + Math.floor(Math.random() * 4)
-  const detections = []
-  for (let i = 0; i < count; i++) {
-    const disease = DISEASE_POOL[Math.floor(Math.random() * DISEASE_POOL.length)]
-    const w = 0.1 + Math.random() * 0.22
-    const h = 0.1 + Math.random() * 0.22
-    detections.push({
-      id: `det-${i}`,
-      label: disease.label,
-      severity: disease.severity,
-      confidence: 85 + Math.random() * 14,
-      x: Math.random() * (1 - w),
-      y: Math.random() * (1 - h),
-      w,
-      h,
-    })
-  }
-  return detections
-}
+};
 
 function drawDetections(canvas, img, detections, progress) {
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  canvas.width = img.naturalWidth || img.width
-  canvas.height = img.naturalHeight || img.height
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
   if (progress < 1) {
-    const scanY = canvas.height * progress
-    ctx.fillStyle = 'rgba(57,255,20,0.08)'
-    ctx.fillRect(0, 0, canvas.width, scanY)
-    ctx.strokeStyle = 'rgba(57,255,20,0.7)'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(0, scanY)
-    ctx.lineTo(canvas.width, scanY)
-    ctx.stroke()
-    const grad = ctx.createLinearGradient(0, scanY - 8, 0, scanY + 8)
-    grad.addColorStop(0, 'transparent')
-    grad.addColorStop(0.5, 'rgba(57,255,20,0.25)')
-    grad.addColorStop(1, 'transparent')
-    ctx.fillStyle = grad
-    ctx.fillRect(0, scanY - 8, canvas.width, 16)
-    return
+    const scanY = canvas.height * progress;
+    ctx.fillStyle = 'rgba(57,255,20,0.08)';
+    ctx.fillRect(0, 0, canvas.width, scanY);
+    ctx.strokeStyle = 'rgba(57,255,20,0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, scanY);
+    ctx.lineTo(canvas.width, scanY);
+    ctx.stroke();
+    const grad = ctx.createLinearGradient(0, scanY - 8, 0, scanY + 8);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(0.5, 'rgba(57,255,20,0.25)');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, scanY - 8, canvas.width, 16);
+    return;
   }
 
   detections.forEach(d => {
-    const px = d.x * canvas.width
-    const py = d.y * canvas.height
-    const pw = d.w * canvas.width
-    const ph = d.h * canvas.height
-    const color = SEV_COLOR[d.severity]
+    const px = d.x * canvas.width;
+    const py = d.y * canvas.height;
+    const pw = d.w * canvas.width;
+    const ph = d.h * canvas.height;
+    const color = SEV_COLOR[d.severity] || '#39ff14';
 
-    ctx.fillStyle = color + '22'
-    ctx.fillRect(px, py, pw, ph)
+    ctx.fillStyle = color + '22';
+    ctx.fillRect(px, py, pw, ph);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(px, py, pw, ph);
 
-    ctx.strokeStyle = color
-    ctx.lineWidth = 2.5
-    ctx.strokeRect(px, py, pw, ph)
-
-    const cs = 12
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.moveTo(px, py + cs); ctx.lineTo(px, py); ctx.lineTo(px + cs, py)
-    ctx.moveTo(px + pw - cs, py); ctx.lineTo(px + pw, py); ctx.lineTo(px + pw, py + cs)
-    ctx.moveTo(px + pw, py + ph - cs); ctx.lineTo(px + pw, py + ph); ctx.lineTo(px + pw - cs, py + ph)
-    ctx.moveTo(px + cs, py + ph); ctx.lineTo(px, py + ph); ctx.lineTo(px, py + ph - cs)
-    ctx.stroke()
-
-    const labelText = `${d.label} ${d.confidence.toFixed(1)}%`
-    ctx.font = 'bold 11px JetBrains Mono, monospace'
-    const tw = ctx.measureText(labelText).width
-    const labelY = py > 20 ? py - 4 : py + ph + 16
-
-    ctx.fillStyle = color + 'dd'
-    ctx.fillRect(px, labelY - 13, tw + 10, 17)
-
-    ctx.fillStyle = d.severity === 'healthy' ? '#060d06' : '#fff'
-    ctx.fillText(labelText, px + 5, labelY)
-  })
+    const labelText = `${d.label} ${d.confidence.toFixed(1)}%`;
+    ctx.font = 'bold 11px JetBrains Mono, monospace';
+    const tw = ctx.measureText(labelText).width;
+    const labelY = py > 20 ? py - 4 : py + ph + 16;
+    ctx.fillStyle = color + 'dd';
+    ctx.fillRect(px, labelY - 13, tw + 10, 17);
+    ctx.fillStyle = d.severity === 'healthy' ? '#060d06' : '#fff';
+    ctx.fillText(labelText, px + 5, labelY);
+  });
 }
 
 export default function ImageScanner() {
-  const fileInputRef = useRef(null)
-  const cameraInputRef = useRef(null)
-  const canvasRef = useRef(null)
-  const imgRef = useRef(null)
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const canvasRef = useRef(null);
+  const imgRef = useRef(null);
 
-  const [imageSrc, setImageSrc] = useState(null)
-  const [scanState, setScanState] = useState('idle')
-  const [scanProgress, setScanProgress] = useState(0)
-  const [detections, setDetections] = useState([])
-  const [dragOver, setDragOver] = useState(false)
-  const detectionsRef = useRef([])
+  const [imageSrc, setImageSrc] = useState(null);
+  const [scanState, setScanState] = useState('idle');
+  const [scanProgress, setScanProgress] = useState(0);
+  const [detections, setDetections] = useState([]);
+  const [dragOver, setDragOver] = useState(false);
+  const detectionsRef = useRef([]);
 
   useEffect(() => {
-    if (!canvasRef.current || !imgRef.current || !imageSrc) return
-    drawDetections(canvasRef.current, imgRef.current, detectionsRef.current, scanProgress)
-  }, [scanProgress, imageSrc])
+    if (!canvasRef.current || !imgRef.current || !imageSrc) return;
+    drawDetections(canvasRef.current, imgRef.current, detectionsRef.current, scanProgress);
+  }, [scanProgress, imageSrc]);
 
-  const runScan = useCallback((src) => {
-    setScanState('scanning')
-    setScanProgress(0)
-    setDetections([])
-    const dets = randomDetections()
-    detectionsRef.current = dets
+  const runScan = useCallback(async (src) => {
+    setScanState('scanning');
+    setScanProgress(0);
+    setDetections([]);
 
-    let p = 0
-    const total = 80
-    const id = setInterval(() => {
-      p++
-      const progress = p / total
-      setScanProgress(progress)
-      if (p >= total) {
-        clearInterval(id)
-        setScanState('done')
-        setScanProgress(1)
-        setDetections(dets)
-        if (canvasRef.current && imgRef.current) {
-          drawDetections(canvasRef.current, imgRef.current, dets, 1)
-        }
+    // Convert base64 to File
+    const response = await fetch(src);
+    const blob = await response.blob();
+    const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
+
+    // Real API call
+    const result = await predictDisease(file);
+
+    if (result && result.detections) {
+      const dets = result.detections.map((d, i) => ({
+        id: `det-${i}`,
+        label: d.class || 'Unknown',
+        severity: 'medium',
+        confidence: d.confidence * 100 || 0,
+        x: d.bbox?.[0] || 0.2,
+        y: d.bbox?.[1] || 0.2,
+        w: d.bbox?.[2] - d.bbox?.[0] || 0.2,
+        h: d.bbox?.[3] - d.bbox?.[1] || 0.2,
+      }));
+      detectionsRef.current = dets;
+      setDetections(dets);
+      setScanState('done');
+      setScanProgress(1);
+      if (canvasRef.current && imgRef.current) {
+        drawDetections(canvasRef.current, imgRef.current, dets, 1);
       }
-    }, 25)
-    return () => clearInterval(id)
-  }, [])
+    } else {
+      setScanState('idle');
+      alert('Prediction failed. Please try again.');
+    }
+  }, []);
 
   const loadImage = useCallback((src) => {
-    setImageSrc(src)
-    setScanState('idle')
-    setScanProgress(0)
-    setDetections([])
-    detectionsRef.current = []
-    const img = new Image()
+    setImageSrc(src);
+    setScanState('idle');
+    setScanProgress(0);
+    setDetections([]);
+    detectionsRef.current = [];
+    const img = new Image();
     img.onload = () => {
-      imgRef.current = img
+      imgRef.current = img;
       if (canvasRef.current) {
-        const ctx = canvasRef.current.getContext('2d')
-        if (!ctx) return
-        canvasRef.current.width = img.naturalWidth
-        canvasRef.current.height = img.naturalHeight
-        ctx.drawImage(img, 0, 0)
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
+        canvasRef.current.width = img.naturalWidth;
+        canvasRef.current.height = img.naturalHeight;
+        ctx.drawImage(img, 0, 0);
       }
-    }
-    img.src = src
-  }, [])
+    };
+    img.src = src;
+  }, []);
 
   const handleFile = (file) => {
-    if (!file.type.startsWith('image/')) return
-    const reader = new FileReader()
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
     reader.onload = e => {
-      const src = e.target?.result
-      loadImage(src)
-    }
-    reader.readAsDataURL(file)
-  }
+      const src = e.target?.result;
+      loadImage(src);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleDrop = (e) => {
-    e.preventDefault()
-    setDragOver(false)
-    const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
-  }
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  };
 
   const handlePaste = useCallback((e) => {
-    const item = Array.from(e.clipboardData?.items ?? []).find(i => i.type.startsWith('image/'))
-    if (item) { const file = item.getAsFile(); if (file) handleFile(file) }
-  }, [])
+    const item = Array.from(e.clipboardData?.items ?? []).find(i => i.type.startsWith('image/'));
+    if (item) { const file = item.getAsFile(); if (file) handleFile(file); }
+  }, []);
 
   useEffect(() => {
-    window.addEventListener('paste', handlePaste)
-    return () => window.removeEventListener('paste', handlePaste)
-  }, [handlePaste])
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [handlePaste]);
 
-  const diseased = detections.filter(d => d.severity !== 'healthy')
-  const avgConf = detections.length ? detections.reduce((s, d) => s + d.confidence, 0) / detections.length : 0
+  const diseased = detections.filter(d => d.severity !== 'healthy');
+  const avgConf = detections.length ? detections.reduce((s, d) => s + d.confidence, 0) / detections.length : 0;
 
   return (
     <section className="py-16 px-6 max-w-7xl mx-auto" id="image-scan">
@@ -224,7 +203,7 @@ export default function ImageScanner() {
               minHeight: '180px',
               background: dragOver ? 'rgba(57,255,20,0.04)' : '#0d1a0d',
             }}
-            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
@@ -238,7 +217,7 @@ export default function ImageScanner() {
             <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b', marginTop: '6px', textAlign: 'center', letterSpacing: '0.05em' }}>
               or click to browse · paste with Ctrl+V
             </span>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} />
           </div>
 
           {/* Camera capture button */}
@@ -257,7 +236,7 @@ export default function ImageScanner() {
               USE CAMERA
             </span>
             <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b' }}>(mobile / webcam)</span>
-            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} />
           </button>
 
           {/* Scan button */}
@@ -325,8 +304,6 @@ export default function ImageScanner() {
                   </div>
                 ))}
               </div>
-
-              {/* Per-detection list */}
               <div className="flex flex-col gap-1.5 mt-1">
                 {detections.map(d => (
                   <div key={d.id} className="flex items-center justify-between">
@@ -381,7 +358,6 @@ export default function ImageScanner() {
               />
             )}
 
-            {/* Scanning overlay animation */}
             {scanState === 'scanning' && (
               <div className="absolute inset-0 pointer-events-none">
                 <div
@@ -395,7 +371,6 @@ export default function ImageScanner() {
               </div>
             )}
 
-            {/* Corner HUD brackets */}
             {imageSrc && (
               <>
                 {[['top-2 left-2', 'border-t border-l'], ['top-2 right-2', 'border-t border-r'], ['bottom-2 left-2', 'border-b border-l'], ['bottom-2 right-2', 'border-b border-r']].map(([pos, brd], i) => (
@@ -404,7 +379,6 @@ export default function ImageScanner() {
               </>
             )}
 
-            {/* Status badge */}
             {scanState !== 'idle' && (
               <div className="absolute top-3 left-3">
                 <div className="flex items-center gap-2 px-2.5 py-1 rounded" style={{ background: 'rgba(6,13,6,0.85)', border: '1px solid rgba(57,255,20,0.3)' }}>
@@ -416,7 +390,6 @@ export default function ImageScanner() {
               </div>
             )}
 
-            {/* Done: detection count badge */}
             {scanState === 'done' && diseased.length > 0 && (
               <div className="absolute top-3 right-3">
                 <div className="flex items-center gap-2 px-2.5 py-1 rounded" style={{ background: 'rgba(255,32,32,0.15)', border: '1px solid rgba(255,32,32,0.4)' }}>
@@ -429,7 +402,6 @@ export default function ImageScanner() {
             )}
           </div>
 
-          {/* Legend below canvas */}
           {scanState === 'done' && (
             <div className="flex items-center gap-5 mt-3 px-1">
               {Object.entries(SEV_COLOR).map(([sev, col]) => (
@@ -446,5 +418,5 @@ export default function ImageScanner() {
         </div>
       </div>
     </section>
-  )
+  );
 }
