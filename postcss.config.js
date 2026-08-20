@@ -1,6 +1,8 @@
-﻿export default {
+﻿@'
+export default {
   plugins: {
     tailwindcss: {},
     autoprefixer: {},
   },
 }
+'@ | Out-File -FilePath postcss.config.js -Encoding utf8NoBOM

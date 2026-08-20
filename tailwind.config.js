@@ -1,4 +1,5 @@
-/** @type {import('tailwindcss').Config} */
+@'
+/** @type {import("tailwindcss").Config} */
 export default {
   content: [
     "./index.html",
@@ -9,3 +10,4 @@ export default {
   },
   plugins: [],
 }
+'@ | Out-File -FilePath tailwind.config.js -Encoding utf8NoBOM
