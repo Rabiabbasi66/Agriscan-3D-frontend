@@ -1,21 +1,48 @@
-import React from 'react'
-import Navbar from './components/Navbar'
-import FarmViewer3D from './components/FarmViewer3D'
-import StatsCards from './components/StatsCards'
-import ScanDashboard from './components/ScanDashboard'
-import ImageScanner from './components/ImageScanner'
-import FieldHealthMap from './components/FieldHealthMap'
-import TeamSection from './components/TeamSection'
+import React, { useState } from 'react';
+import Navbar from './components/Navbar';
+import FarmViewer3D from './components/FarmViewer3D';
+import StatsCards from './components/StatsCards';
+import ScanDashboard from './components/ScanDashboard';
+import ImageScanner from './components/ImageScanner';
+import FieldHealthMap from './components/FieldHealthMap';
+import TeamSection from './components/TeamSection';
+
+// ✅ API Service (Directly in App.jsx)
+const API_URL = import.meta.env.VITE_API_URL || 'https://nestedt-6a85f08102c18288dee79b3f-dproatj77a-oc.a.run.app';
+const API_KEY = import.meta.env.VITE_API_KEY || 'u1_01786bfd9c0e301e77a5693d0c13a5671d98597';
+
+const predictDisease = async (imageFile) => {
+  const formData = new FormData();
+  formData.append('file', imageFile);
+
+  try {
+    const response = await fetch(`${API_URL}/predict`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${API_KEY}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("❌ Prediction Error:", error);
+    return null;
+  }
+};
 
 function HeroSection() {
   return (
     <div className="hero-wrapper">
-      {/* Background 3D Layer */}
       <div className="absolute inset-0 pt-16">
         <FarmViewer3D />
       </div>
 
-      {/* Content Layer */}
       <div className="relative z-10 flex flex-col justify-end h-full pb-16 px-4 md:px-8 pointer-events-none container-center">
         <div className="max-w-3xl">
           <div className="flex items-center gap-3 mb-4">
@@ -45,6 +72,7 @@ function HeroSection() {
               style={{ background: '#39ff14', color: '#060d06', fontSize: '13px', letterSpacing: '0.1em' }}
               onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 30px rgba(57,255,20,0.4)' }}
               onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none' }}
+              onClick={() => document.getElementById('image-scanner')?.scrollIntoView({ behavior: 'smooth' })}
             >
               START SCAN
             </button>
@@ -137,15 +165,33 @@ function Footer() {
   )
 }
 
+// ✅ Main App Component with Image Scanner Integration
 export default function App() {
+  const [scanResult, setScanResult] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState(null);
+
+  const handleImageScan = async (imageFile) => {
+    setIsScanning(true);
+    setScanError(null);
+    setScanResult(null);
+
+    const result = await predictDisease(imageFile);
+    setIsScanning(false);
+
+    if (result) {
+      setScanResult(result);
+    } else {
+      setScanError("Prediction failed. Please try again.");
+    }
+  };
+
   return (
     <div style={{ background: '#060d06', minHeight: '100vh' }}>
       <Navbar />
       
-      {/* Hero is full width, no container needed inside */}
       <HeroSection />
       
-      {/* Other sections wrapped in container-center to keep them tidy */}
       <section className="page-section">
         <div className="container-center">
           <TechBanner />
@@ -164,9 +210,15 @@ export default function App() {
         </div>
       </section>
 
-      <section className="page-section">
+      {/* ✅ ImageScanner with Backend Integration */}
+      <section id="image-scanner" className="page-section">
         <div className="container-center">
-          <ImageScanner />
+          <ImageScanner 
+            onScan={handleImageScan}
+            isScanning={isScanning}
+            scanResult={scanResult}
+            scanError={scanError}
+          />
         </div>
       </section>
 

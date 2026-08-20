@@ -1,44 +1,94 @@
-@"
-# Backend - EXCLUDE ALL
-backend/
-app/
+# =====================
+# Python
+# =====================
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
-env/
 venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Node modules
-node_modules/
-dist/
-dist-ssr/
-*.local
-
-# Environment files
+env/
+ENV/
+.venv
 .env
 .env.local
-.env.*.local
+.env.production
+*.log
 
-# IDE
+# =====================
+# IDE / Editor
+# =====================
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
+*~
 .DS_Store
-Thumbs.db
 
-# Logs
+# =====================
+# Project Specific
+# =====================
+# Models (Agar model ko GitHub pe nahi push karna)
+models/
+*.pt
+*.pth
+*.onnx
+
+# Dataset
+plantvillage_dataset/
+*.zip
+*.tar.gz
+
+# Uploads / Temp
+uploads/
 logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-"@ | Out-File -FilePath .gitignore -Encoding utf8
+test_images/
+temp/
+
+# Training outputs
+agriscan_model/
+runs/
+wandb/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# =====================
+# Deployment
+# =====================
+*.pid
+*.seed
+*.pid.lock
+
+# =====================
+# Testing
+# =====================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# =====================
+# Jupyter Notebooks
+# =====================
+.ipynb_checkpoints/
+*.ipynb
+
+# =====================
+# Docker
+# =====================
+*.tar
+*.tar.gz
+docker-compose.override.yml
+
+# =====================
+# Environment Variables
+# =====================
+.env
+.env.*
+!.env.example
