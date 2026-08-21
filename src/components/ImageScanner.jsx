@@ -120,7 +120,7 @@ export default function ImageScanner() {
       }
     } else {
       setScanState('idle');
-      alert('Prediction failed. Please try again.');
+      //alert('Prediction failed. Please try again.');
     }
   }, []);
 
