@@ -1,5 +1,5 @@
 // src/services/api.js
-const API_URL = "https://predict-6a872ace3e12cb7a24c0e991-dproatj77a-oc.a.run.app";
+const API_URL = "https://predict-6a88237196138d833c705aec-dproatj77a-ez.a.run.app";
 const API_KEY = "ul_01786bfbd9c0e301e77a5693dcc13a5671d98597";
 
 export const predictDisease = async (imageFile) => {
