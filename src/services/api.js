@@ -1,6 +1,8 @@
 // src/services/api.js
-const API_URL = "https://predict-6a8873db8618f7c7935cc654-dproatj77a-ww.a.run.app/predict";
+// ✅ SAHI URL - BINA /predict KE
+const API_URL = "https://predict-6a8873db8618f7c7935cc654-dproatj77a-ww.a.run.app";
 const API_KEY = "ul_01786bfbd9c0e301e77a5693dcc13a5671d98597";
+
 export const predictDisease = async (imageFile) => {
   console.log("📤 API_URL:", API_URL);
 
@@ -8,6 +10,7 @@ export const predictDisease = async (imageFile) => {
   formData.append('file', imageFile);
 
   try {
+    // ✅ YAHAN /predict ADD HO RAHA HAI
     const response = await fetch(`${API_URL}/predict`, {
       method: 'POST',
       headers: {
