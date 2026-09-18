@@ -100,4 +100,18 @@ node_modules/
 dist/
 .freebuff/
 
-backend/
+
+# =====================
+# Backend (explicit ignores: secrets / local / generated only)
+# =====================
+backend/.env
+backend/venv/
+backend/.venv/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/logs/
+backend/uploads/
+backend/models/
+backend/plantvillage_dataset/
+backend/agriscan_model/
+backend/.pytest_cache/

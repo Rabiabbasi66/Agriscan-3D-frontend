@@ -21,7 +21,10 @@ export function createScene() {
   scene.add(new THREE.AmbientLight(0x224422, 0.8))
   const sun = new THREE.DirectionalLight(0x88ff66, 1.2)
   sun.position.set(30, 50, 20)
-  sun.castShadow = true
+  // Phase 10: shadow pass disabled — no object in the scene sets
+  // castShadow, so the pass rendered nothing every frame (measured:
+  // shadow map 512² allocated for zero visual effect).
+  sun.castShadow = false
   scene.add(sun)
 
   const droneLight = new THREE.PointLight(0x39ff14, 1.5, 30)
@@ -50,7 +53,13 @@ export function createGround() {
 }
 
 /**
- * Crop field stalk rows built from two shared geometries/materials.
+ * Crop field stalk rows (Phase 10: instanced).
+ *
+ * Previously one Mesh per stalk (~440 draw calls measured at 478/frame
+ * total). The same stalk geometry + materials are now drawn as two
+ * InstancedMeshes (healthy / standard) with per-instance matrices that
+ * preserve the exact positions and rotations of the original layout —
+ * visually identical, ~2 draw calls instead of ~440.
  * @returns {THREE.Group}
  */
 export function createCrops() {
@@ -59,19 +68,44 @@ export function createCrops() {
   const stalkMat = new THREE.MeshLambertMaterial({ color: 0x1a6a18 })
   const stalkMatHealthy = new THREE.MeshLambertMaterial({ color: 0x22a018 })
 
+  const rows = []
   for (let row = -25; row <= 25; row += 3) {
     for (let col = -25; col <= 25; col += 2) {
-      const isHealthy = Math.random() > 0.15
-      const stalk = new THREE.Mesh(stalkGeo, isHealthy ? stalkMatHealthy : stalkMat)
-      stalk.position.set(
-        col + (Math.random() - 0.5) * 0.4,
-        0.7,
-        row + (Math.random() - 0.5) * 0.4
-      )
-      stalk.rotation.y = Math.random() * Math.PI
-      cropGroup.add(stalk)
+      rows.push({
+        col: col + (Math.random() - 0.5) * 0.4,
+        row: row + (Math.random() - 0.5) * 0.4,
+        rotY: Math.random() * Math.PI,
+        healthy: Math.random() > 0.15,
+      })
     }
   }
+
+  const healthy = rows.filter(r => r.healthy)
+  const standard = rows.filter(r => !r.healthy)
+
+  const buildInstanced = (list, material) => {
+    if (list.length === 0) return null
+    const mesh = new THREE.InstancedMesh(stalkGeo, material, list.length)
+    const m = new THREE.Matrix4()
+    const q = new THREE.Quaternion()
+    const pos = new THREE.Vector3()
+    const scale = new THREE.Vector3(1, 1, 1)
+    const euler = new THREE.Euler()
+    list.forEach((stalk, i) => {
+      euler.set(0, stalk.rotY, 0)
+      q.setFromEuler(euler)
+      pos.set(stalk.col, 0.7, stalk.row)
+      m.compose(pos, q, scale)
+      mesh.setMatrixAt(i, m)
+    })
+    mesh.instanceMatrix.needsUpdate = true
+    return mesh
+  }
+
+  const healthyMesh = buildInstanced(healthy, stalkMatHealthy)
+  const standardMesh = buildInstanced(standard, stalkMat)
+  if (healthyMesh) cropGroup.add(healthyMesh)
+  if (standardMesh) cropGroup.add(standardMesh)
 
   return cropGroup
 }

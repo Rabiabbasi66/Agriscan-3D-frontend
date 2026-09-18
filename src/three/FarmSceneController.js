@@ -14,9 +14,9 @@
 import * as THREE from 'three'
 import { createScene, createGround, createCrops, createDiseaseZones } from './scene'
 import { createDrone } from './drone'
-import { getDronePosition } from './dronePath'
+import { getDronePositionInto } from './dronePath'
 import { DRONE } from './config'
-import { createAiMarkerGroup, rebuildAiMarkers, updateAppearAnimations } from './aiMarkers'
+import { createAiMarkerGroup, rebuildAiMarkers, updateAppearAnimations, setHighlightedMarker } from './aiMarkers'
 
 export default class FarmSceneController {
   /**
@@ -35,7 +35,7 @@ export default class FarmSceneController {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
     this.renderer.setSize(W, H)
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    this.renderer.shadowMap.enabled = true
+    this.renderer.shadowMap.enabled = false
     container.appendChild(this.renderer.domElement)
 
     // ── Scene graph ─────────────────────────────────────────────────────
@@ -77,6 +77,9 @@ export default class FarmSceneController {
     this.scanning = true
     this.droneSpeed = 0.004
 
+    /** Phase 7: detectionId of the currently highlighted AI marker (or null). */
+    this.selectedDetectionId = null
+
     /** Optional per-frame callback: (controller) => void, runs before render. */
     this.onBeforeRender = null
 
@@ -89,6 +92,9 @@ export default class FarmSceneController {
 
     /** Raycaster reused for marker picking (no per-click allocation). */
     this._raycaster = new THREE.Raycaster()
+
+    /** Phase 10: scratch vector for the per-frame drone path target. */
+    this._droneTarget = new THREE.Vector3()
 
     this._animate = this._animate.bind(this)
     this._onResize = this._onResize.bind(this)
@@ -115,6 +121,28 @@ export default class FarmSceneController {
   }
 
   /**
+   * Phase 8: mission state derived ONLY from real controller state.
+   *
+   * - `scanning` mirrors the existing pause/resume control.
+   * - position/altitude come from the live drone mesh.
+   * - loopProgress is the fraction of the current Lissajous patrol cycle
+   *   (period 2π in t) — an honest loop-position indicator, NOT a field
+   *   survey percentage (the patrol is endless; there are no waypoints).
+   * @returns {{ scanning: boolean, position: THREE.Vector3, altitude: number, loopProgress: number }}
+   */
+  getMissionState() {
+    const pos = this.droneGroup.position
+    const period = Math.PI * 2
+    const loopProgress = ((this.tDrone % period) + period) % period / period
+    return {
+      scanning: this.scanning,
+      position: pos.clone(),
+      altitude: pos.y,
+      loopProgress,
+    }
+  }
+
+  /**
    * Replace the AI-scan markers with markers for `detections`.
    *
    * Pass a normalised detection array (see normalizePrediction() in
@@ -137,6 +165,8 @@ export default class FarmSceneController {
     const effective = capturePosition || this.lastCapturePosition
     const result = rebuildAiMarkers(this.aiMarkerGroup, detections, effective)
     this._appearClock = 0 // restart the marker appear animation
+    // Phase 7: a rescan invalidates any previous marker selection.
+    this.selectedDetectionId = null
     return result
   }
 
@@ -152,6 +182,18 @@ export default class FarmSceneController {
     this._raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera)
     const hits = this._raycaster.intersectObject(this.groundMesh, false)
     return hits.length > 0 ? hits[0].point : null
+  }
+
+  /**
+   * Phase 7: highlight the AI marker associated with a detection id.
+   * Re-colours materials in place; pass null to clear. Returns true when
+   * a matching marker exists.
+   * @param {string|null} detectionId
+   * @returns {boolean}
+   */
+  highlightAiMarker(detectionId) {
+    this.selectedDetectionId = detectionId || null
+    return setHighlightedMarker(this.aiMarkerGroup, this.selectedDetectionId)
   }
 
   /**
@@ -179,6 +221,7 @@ export default class FarmSceneController {
   /**
    * Drone motion for the current frame. Extracted so Phase 2 can swap the
    * patrol path for waypoints without touching the render loop.
+   * Phase 10: uses the allocation-free path variant (no per-frame Vector3).
    * @private
    */
   _updateDrone() {
@@ -186,8 +229,8 @@ export default class FarmSceneController {
       this.tDrone += this.droneSpeed
     }
 
-    const newPos = getDronePosition(this.tDrone)
-    this.droneGroup.position.lerp(newPos, 0.08)
+    this._droneTarget = getDronePositionInto(this.tDrone, this._droneTarget)
+    this.droneGroup.position.lerp(this._droneTarget, 0.08)
     this.droneGroup.rotation.y = -this.tDrone + Math.PI
 
     this.droneLight.position.copy(this.droneGroup.position)

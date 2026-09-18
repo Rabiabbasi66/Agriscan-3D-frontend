@@ -40,6 +40,9 @@ const RING_HALF_W = 0.3
 const RING_SEGMENTS = 48
 const APPEAR_DURATION = 1.0
 
+/** Phase 7: highlight colour for the selected marker (project accent). */
+const SELECTED_HEX = 0xffffff
+
 /**
  * Map one detection to a 3D position.
  *
@@ -100,6 +103,7 @@ function buildAiMarker(detection, mapping) {
   const marker = new THREE.Group()
   marker.position.copy(position)
   marker.userData.aiMeta = {
+    detectionId: detection.id ?? null,
     label: detection.label,
     className: detection.className,
     severity: detection.severity,
@@ -183,6 +187,7 @@ function disposeMarker(marker) {
  */
 export function rebuildAiMarkers(group, detections, dronePosition = null) {
   while (group.children.length > 0) disposeMarker(group.children[0])
+  group.userData.appearComplete = false // restart the appear-animation fast path
 
   const cameraState = dronePosition ? computeNadirCameraState(dronePosition) : null
   const diseased = (Array.isArray(detections) ? detections : [])
@@ -198,11 +203,18 @@ export function rebuildAiMarkers(group, detections, dronePosition = null) {
   return { created: diseased.length, source: cameraState ? 'camera' : 'grid' }
 }
 
-/** Advance every marker's appear animation. tMs = milliseconds since rebuild. */
+/**
+ * Advance every marker's appear animation. tMs = milliseconds since rebuild.
+ * Phase 10: skips traversal entirely once every marker has fully appeared
+ * (one boolean flag instead of per-frame scene traversal afterwards).
+ */
 export function updateAppearAnimations(group, tMs) {
+  if (group.userData.appearComplete) return
   const t = tMs / 1000
+  let allDone = true
   group.children.forEach(marker => {
     const k = Math.min(1, Math.max(0, (t - marker.userData.appearT) / APPEAR_DURATION))
+    if (k < 1) allDone = false
     if (k <= 0) { marker.visible = false; return }
     marker.visible = true
     const ease = 1 - Math.pow(1 - k, 3)
@@ -214,4 +226,33 @@ export function updateAppearAnimations(group, tMs) {
       }
     })
   })
+  if (allDone) group.userData.appearComplete = true
+}
+
+/**
+ * Phase 7: highlight the marker whose aiMeta.detectionId matches.
+ *
+ * Materials are re-coloured in place (no new geometries/materials, nothing
+ * allocated per frame). Passing `detectionId = null` clears the highlight.
+ * The pulse ring is left alone — its opacity is driven by the pulse clock.
+ *
+ * @param {THREE.Group} group AI marker group
+ * @param {string|null} detectionId detection id to highlight (or null)
+ * @returns {boolean} true when a marker was highlighted
+ */
+export function setHighlightedMarker(group, detectionId) {
+  let found = false
+  group.children.forEach(marker => {
+    const meta = marker.userData.aiMeta
+    const isTarget = detectionId != null && meta && meta.detectionId === detectionId
+    marker.traverse(obj => {
+      if (obj.userData.isPulse) return
+      if (obj.material && obj.material.color) {
+        const base = obj.userData.baseHex ?? (obj.userData.baseHex = obj.material.color.getHex())
+        obj.material.color.setHex(isTarget ? SELECTED_HEX : base)
+      }
+    })
+    if (isTarget) found = true
+  })
+  return found
 }

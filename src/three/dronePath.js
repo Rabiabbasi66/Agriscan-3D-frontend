@@ -19,3 +19,22 @@ export function getDronePosition(t) {
   const y = 10 + Math.sin(t * 3) * 1.5
   return new THREE.Vector3(x, y, z)
 }
+
+/**
+ * Phase 10: allocation-free variant used by the render loop. Writes the
+ * patrol position into `out` instead of allocating a new Vector3 per frame
+ * (the loop ran at ~60fps; the old path allocated one Vector3 each frame).
+ * Same math as getDronePosition — the visual path is unchanged.
+ * @param {number} t flight time
+ * @param {THREE.Vector3} out target vector
+ * @returns {THREE.Vector3} out
+ */
+export function getDronePositionInto(t, out) {
+  const scale = 22
+  out.set(
+    Math.sin(t) * scale,
+    10 + Math.sin(t * 3) * 1.5,
+    Math.sin(t * 2) * scale * 0.5,
+  )
+  return out
+}

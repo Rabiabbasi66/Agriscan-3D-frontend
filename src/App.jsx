@@ -4,19 +4,26 @@ import FarmViewer3D from './components/FarmViewer3D';
 import StatsCards from './components/StatsCards';
 import ScanDashboard from './components/ScanDashboard';
 import ImageScanner from './components/ImageScanner';
+import PredictionHistory from './components/PredictionHistory';
 import FieldHealthMap from './components/FieldHealthMap';
 import TeamSection from './components/TeamSection';
+import FieldAnalytics from './components/FieldAnalytics';
+import { AuthProvider } from './context/AuthContext';
 import { normalizePrediction } from './services/api';
 
 // ✅ The AI prediction client lives in src/services/api.js (single source of
 // truth). ImageScanner calls it directly; App lifts each scan's normalised
 // detections up so the 3D farm viewer can visualise them (Phase 2).
 
-function HeroSection({ detections = null }) {
+function HeroSection({ detections = null, selectedDetectionId = null, onDetectionSelect = null, capturing = false }) {
   return (
     <div className="hero-wrapper">
       <div className="absolute inset-0 pt-16">
-        <FarmViewer3D detections={detections} />
+        <FarmViewer3D
+          detections={detections}
+          selectedDetectionId={selectedDetectionId}
+          onSelectionChange={onDetectionSelect}
+        />
       </div>
 
       <div className="relative z-10 flex flex-col justify-end h-full pb-16 px-4 md:px-8 pointer-events-none container-center">
@@ -148,16 +155,34 @@ function Footer() {
 // AI results appear as 3D disease markers (demo zones stay as fallback).
 export default function App() {
   const [aiDetections, setAiDetections] = useState(null);
+  // Phase 7: shared selection — the scanner report list and the 3D scene
+  // highlight stay in sync through this single source of truth.
+  const [selectedDetectionId, setSelectedDetectionId] = useState(null);
 
   const handleScanComplete = (rawResult) => {
     setAiDetections(rawResult ? normalizePrediction(rawResult) : null);
+    setSelectedDetectionId(null);
+    // Phase 13/9: session analytics observe only REAL completed scans —
+    // failed scans (rawResult === null) must not increment counters.
+    if (rawResult) {
+      window.dispatchEvent(new CustomEvent('agriscan:scan-complete', { detail: rawResult }));
+    }
   };
 
+  // Phase 8: real capture/inference lifecycle from ImageScanner.
+  const [isCapturing, setIsCapturing] = useState(false);
+
   return (
-    <div style={{ background: '#060d06', minHeight: '100vh' }}>
-      <Navbar />
+    <AuthProvider>
+      <div style={{ background: '#060d06', minHeight: '100vh' }}>
+        <Navbar />
       
-      <HeroSection detections={aiDetections} />
+      <HeroSection
+        detections={aiDetections}
+        selectedDetectionId={selectedDetectionId}
+        onDetectionSelect={setSelectedDetectionId}
+        capturing={isCapturing}
+      />
       
       <section className="page-section">
         <div className="container-center">
@@ -180,7 +205,26 @@ export default function App() {
       {/* ✅ Image scanner with real backend integration */}
       <section id="image-scanner" className="page-section">
         <div className="container-center">
-          <ImageScanner onScanComplete={handleScanComplete} />
+          <ImageScanner
+            onScanComplete={handleScanComplete}
+            onDetectionSelect={setSelectedDetectionId}
+            selectedDetectionId={selectedDetectionId}
+            onScanningStateChange={setIsCapturing}
+          />
+        </div>
+      </section>
+
+      {/* ✅ Prediction history (Phase 4) — authenticated user's saved scans */}
+      <section id="prediction-history" className="page-section">
+        <div className="container-center">
+          <PredictionHistory />
+        </div>
+      </section>
+
+      {/* ✅ Field analytics (Phase 9) — real persisted prediction data only */}
+      <section id="field-analytics" className="page-section">
+        <div className="container-center">
+          <FieldAnalytics onDetectionSelect={setSelectedDetectionId} />
         </div>
       </section>
 
@@ -196,7 +240,8 @@ export default function App() {
         </div>
       </section>
 
-      <Footer />
-    </div>
+        <Footer />
+      </div>
+    </AuthProvider>
   )
 }

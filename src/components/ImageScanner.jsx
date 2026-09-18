@@ -69,7 +69,7 @@ function drawDetections(canvas, img, detections, progress) {
   });
 }
 
-export default function ImageScanner({ onScanComplete }) {
+export default function ImageScanner({ onScanComplete, onDetectionSelect, selectedDetectionId = null, onScanningStateChange = null }) {
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const canvasRef = useRef(null);
@@ -81,6 +81,12 @@ export default function ImageScanner({ onScanComplete }) {
   const [detections, setDetections] = useState([]);
   const [dragOver, setDragOver] = useState(false);
   const detectionsRef = useRef([]);
+  // Phase 6: real backend metadata for the finished scan (null when the
+  // active endpoint does not provide a field — nothing is fabricated).
+  const [scanMeta, setScanMeta] = useState(null);
+  // Phase 13: explicit failure state — a failed scan is visibly different
+  // from a successful one and never feeds analytics or AI markers.
+  const [scanError, setScanError] = useState(null);
 
   useEffect(() => {
     if (!canvasRef.current || !imgRef.current || !imageSrc) return;
@@ -91,6 +97,10 @@ export default function ImageScanner({ onScanComplete }) {
     setScanState('scanning');
     setScanProgress(0);
     setDetections([]);
+    setScanMeta(null);
+    setScanError(null);
+    // Phase 8: notify the app that a real capture/inference is in flight.
+    if (typeof onScanningStateChange === 'function') onScanningStateChange(true);
 
     // Convert base64 to File
     const response = await fetch(src);
@@ -100,10 +110,32 @@ export default function ImageScanner({ onScanComplete }) {
     // Real API call
     const result = await predictDisease(file);
 
+    // Phase 8: capture/inference finished — clear the flight capture flag
+    // on BOTH success and failure paths.
+    if (typeof onScanningStateChange === 'function') onScanningStateChange(false);
+
+    if (!result) {
+      // Phase 13: inference failed / backend unavailable — show a real
+      // error, forward null (clears AI markers, demo zones stay fallback)
+      // and do NOT emit a scan-complete event (analytics must not count it).
+      setScanState('error');
+      setScanError('Scan failed. The AI service could not be reached — please try again.');
+      if (onScanComplete) onScanComplete(null);
+      return;
+    }
+
     // Phase 2: forward the finished scan to App (which feeds FarmViewer3D).
     // Normalisation in api.js handles both backend response shapes; a null
     // (API failure) clears AI markers so demo zones remain the fallback.
     if (onScanComplete) onScanComplete(result || null);
+
+    // Phase 6: capture the real response metadata when present.
+    if (result) {
+      setScanMeta({
+        predictionId: typeof result.prediction_id === 'string' ? result.prediction_id : null,
+        inferenceTimeMs: typeof result.inference_time_ms === 'number' ? result.inference_time_ms : null,
+      });
+    }
 
     if (result && result.detections) {
       const dets = result.detections.map((d, i) => ({
@@ -149,6 +181,7 @@ export default function ImageScanner({ onScanComplete }) {
     setScanState('idle');
     setScanProgress(0);
     setDetections([]);
+    setScanMeta(null);
     detectionsRef.current = [];
     const img = new Image();
     img.onload = () => {
@@ -306,6 +339,15 @@ export default function ImageScanner({ onScanComplete }) {
           </div>
 
           {/* Scan results summary */}
+          {scanState === 'error' && scanError && (
+            <div className="agri-card p-4" style={{ border: '1px solid rgba(255,48,48,0.4)' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#ff3030', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                Scan Failed
+              </span>
+              <p className="text-sm mt-2" style={{ color: '#ff9020' }}>{scanError}</p>
+            </div>
+          )}
+
           {scanState === 'done' && (
             <div className="agri-card p-4 flex flex-col gap-3" style={{ border: '1px solid rgba(57,255,20,0.2)' }}>
               <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
@@ -317,6 +359,14 @@ export default function ImageScanner({ onScanComplete }) {
                   { l: 'Diseased', v: String(diseased.length) },
                   { l: 'Avg. Confidence', v: `${avgConf.toFixed(1)}%` },
                   { l: 'Model', v: 'YOLOv8n' },
+                  // Phase 6: real fields from the prediction response, shown
+                  // only when the serving endpoint actually provides them.
+                  ...(scanMeta?.inferenceTimeMs != null
+                    ? [{ l: 'Inference', v: `${scanMeta.inferenceTimeMs.toFixed(0)} ms` }]
+                    : []),
+                  ...(scanMeta?.predictionId
+                    ? [{ l: 'Prediction ID', v: scanMeta.predictionId.length > 13 ? `${scanMeta.predictionId.slice(0, 10)}…` : scanMeta.predictionId }]
+                    : []),
                 ].map(s => (
                   <div key={s.l} className="rounded p-2" style={{ background: '#122012', border: '1px solid #1c3a1c' }}>
                     <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#6b9b6b', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{s.l}</div>
@@ -325,17 +375,42 @@ export default function ImageScanner({ onScanComplete }) {
                 ))}
               </div>
               <div className="flex flex-col gap-1.5 mt-1">
-                {detections.map(d => (
-                  <div key={d.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-sm" style={{ background: SEV_COLOR[d.severity] + '55', border: `1px solid ${SEV_COLOR[d.severity]}` }} />
-                      <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#e8f5e8' }}>{d.label}</span>
+                {detections.map(d => {
+                  const focusable = typeof onDetectionSelect === 'function';
+                  const isSelected = selectedDetectionId === d.id;
+                  const rowStyle = {
+                    ...(isSelected
+                      ? { background: '#122012', border: '1px solid rgba(57,255,20,0.35)', borderRadius: '4px', padding: '2px 4px' }
+                      : {}),
+                  };
+                  const content = (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-sm" style={{ background: SEV_COLOR[d.severity] + '55', border: `1px solid ${SEV_COLOR[d.severity]}` }} />
+                        <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#e8f5e8' }}>{d.label}</span>
+                      </div>
+                      <span style={{ fontFamily: 'monospace', fontSize: '10px', color: SEV_COLOR[d.severity], fontWeight: 600 }}>
+                        {d.confidence.toFixed(1)}%
+                      </span>
+                    </>
+                  );
+                  return focusable ? (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => onDetectionSelect(d.id)}
+                      className="flex items-center justify-between w-full text-left transition-all duration-150"
+                      style={{ cursor: 'pointer', ...rowStyle }}
+                      title="Highlight in 3D view"
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <div key={d.id} className="flex items-center justify-between" style={rowStyle}>
+                      {content}
                     </div>
-                    <span style={{ fontFamily: 'monospace', fontSize: '10px', color: SEV_COLOR[d.severity], fontWeight: 600 }}>
-                      {d.confidence.toFixed(1)}%
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

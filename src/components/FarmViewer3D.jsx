@@ -17,7 +17,7 @@ const formatPosition = (p) => `x ${p.x.toFixed(1)} · z ${p.z.toFixed(1)}`
  * detection becomes a marker in the 3D farm; when absent/empty the existing
  * demo disease zones remain as the fallback visualisation.
  */
-export default function FarmViewer3D({ detections = null }) {
+export default function FarmViewer3D({ detections = null, selectedDetectionId: selectedDetectionIdProp = null, onSelectionChange = null, capturing = false }) {
   const mountRef = useRef(null)
   const controllerRef = useRef(null)
   const [webgpu, setWebgpu] = useState(null)
@@ -25,14 +25,59 @@ export default function FarmViewer3D({ detections = null }) {
   const [droneSpeed, setDroneSpeed] = useState(0.004)
   // Phase 3: metadata of the currently selected AI marker (or null).
   const [selectedMeta, setSelectedMeta] = useState(null)
+  // Phase 7: id of the detection whose marker is highlighted (list ↔ scene).
+  const [selectedDetectionId, setSelectedDetectionId] = useState(null)
+  // Phase 8: live mission readout (altitude/loop position from the real
+  // drone mesh state; sampled on the existing animation clock — no new loop).
+  const [mission, setMission] = useState(null)
 
   // Click-to-inspect: raycast to the ground, snap to the nearest AI marker.
   const handleCanvasClick = useCallback((event) => {
     const controller = controllerRef.current
     if (!controller) return
     const idx = controller.findNearestMarker(controller.pickGroundPoint(event))
-    setSelectedMeta(idx === null ? null : controller.aiMarkerGroup.children[idx]?.userData.aiMeta || null)
+    const meta = idx === null ? null : controller.aiMarkerGroup.children[idx]?.userData.aiMeta || null
+    setSelectedMeta(meta)
+    // Keep the list↔scene selection in sync (Phase 7), upward as well so
+    // the scanner report highlights the same row.
+    const id = meta ? meta.detectionId ?? null : null
+    setSelectedDetectionId(id)
+    if (typeof onSelectionChange === 'function') onSelectionChange(id)
+  }, [onSelectionChange])
+
+  /**
+   * Phase 7: focus + highlight the marker for a detection id (list → scene).
+   * Selection only exists when a real association exists — unknown ids are
+   * ignored and null clears the highlight.
+   */
+  const focusAiMarker = useCallback((detectionId) => {
+    const controller = controllerRef.current
+    if (!controller) return
+    const matched = controller.highlightAiMarker(detectionId)
+    if (matched) {
+      setSelectedDetectionId(detectionId)
+      const marker = controller.aiMarkerGroup.children.find(
+        m => m.userData.aiMeta && m.userData.aiMeta.detectionId === detectionId,
+      )
+      setSelectedMeta(marker ? marker.userData.aiMeta : null)
+    } else {
+      setSelectedDetectionId(null)
+      setSelectedMeta(null)
+    }
   }, [])
+
+  // Clear the highlight when the marker set is replaced by a new scan.
+  useEffect(() => {
+    setSelectedDetectionId(null)
+    setSelectedMeta(null)
+  }, [detections])
+
+  // Phase 7: external selection (e.g. Prediction History) drives focus.
+  useEffect(() => {
+    if (selectedDetectionIdProp !== null) {
+      focusAiMarker(selectedDetectionIdProp)
+    }
+  }, [selectedDetectionIdProp, focusAiMarker])
 
   // WebGPU capability badge (informational — renderer is WebGL).
   useEffect(() => {
@@ -63,6 +108,16 @@ export default function FarmViewer3D({ detections = null }) {
   useEffect(() => {
     controllerRef.current?.setDroneSpeed(droneSpeed)
   }, [droneSpeed])
+
+  // Phase 8: sample the controller's real mission state on a slow cadence
+  // (250 ms) — HUD-only updates, never a scene rebuild.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const controller = controllerRef.current
+      if (controller) setMission(controller.getMissionState())
+    }, 250)
+    return () => clearInterval(id)
+  }, [])
 
   // Phase 2: AI scan detections → 3D markers. The controller rebuilds and
   // disposes its AI marker group; an empty list clears AI markers so the
@@ -101,9 +156,16 @@ export default function FarmViewer3D({ detections = null }) {
         </div>
         <div className="agri-card px-3 py-1.5">
           <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#6b9b6b', letterSpacing: '0.08em' }}>
-            ALT: <span style={{ color: '#e8f5e8' }}>10.2m</span>
+            ALT: <span style={{ color: '#e8f5e8' }}>{mission ? `${mission.altitude.toFixed(1)}m` : '10.2m'}</span>
           </span>
         </div>
+        {capturing && (
+          <div className="agri-card px-3 py-1.5">
+            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.08em' }}>
+              CAPTURING
+            </span>
+          </div>
+        )}
         {(detections || []).filter(d => d.severity !== 'healthy').length > 0 && (
           <div className="agri-card px-3 py-1.5">
             <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.08em' }}>
