@@ -92,4 +92,12 @@ docker-compose.override.yml
 .env
 .env.*
 !.env.example
+
+# =====================
+# Generated / Local (frontend build tooling)
+# =====================
+node_modules/
+dist/
+.freebuff/
+
 backend/

@@ -6,41 +6,17 @@ import ScanDashboard from './components/ScanDashboard';
 import ImageScanner from './components/ImageScanner';
 import FieldHealthMap from './components/FieldHealthMap';
 import TeamSection from './components/TeamSection';
+import { normalizePrediction } from './services/api';
 
-// ✅ API Service (Directly in App.jsx)
-const API_URL = import.meta.env.VITE_API_URL || 'https://nestedt-6a85f08102c18288dee79b3f-dproatj77a-oc.a.run.app';
-const API_KEY = import.meta.env.VITE_API_KEY || 'u1_01786bfd9c0e301e77a5693d0c13a5671d98597';
+// ✅ The AI prediction client lives in src/services/api.js (single source of
+// truth). ImageScanner calls it directly; App lifts each scan's normalised
+// detections up so the 3D farm viewer can visualise them (Phase 2).
 
-const predictDisease = async (imageFile) => {
-  const formData = new FormData();
-  formData.append('file', imageFile);
-
-  try {
-    const response = await fetch(`${API_URL}/predict`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`
-      },
-      body: formData
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("❌ Prediction Error:", error);
-    return null;
-  }
-};
-
-function HeroSection() {
+function HeroSection({ detections = null }) {
   return (
     <div className="hero-wrapper">
       <div className="absolute inset-0 pt-16">
-        <FarmViewer3D />
+        <FarmViewer3D detections={detections} />
       </div>
 
       <div className="relative z-10 flex flex-col justify-end h-full pb-16 px-4 md:px-8 pointer-events-none container-center">
@@ -165,32 +141,23 @@ function Footer() {
   )
 }
 
-// ✅ Main App Component with Image Scanner Integration
+// ✅ Main App Component
+// ImageScanner owns its own scan UI state and calls the prediction API from
+// src/services/api.js. It reports each finished scan to App via
+// `onScanComplete`; App feeds the normalised detections into FarmViewer3D so
+// AI results appear as 3D disease markers (demo zones stay as fallback).
 export default function App() {
-  const [scanResult, setScanResult] = useState(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanError, setScanError] = useState(null);
+  const [aiDetections, setAiDetections] = useState(null);
 
-  const handleImageScan = async (imageFile) => {
-    setIsScanning(true);
-    setScanError(null);
-    setScanResult(null);
-
-    const result = await predictDisease(imageFile);
-    setIsScanning(false);
-
-    if (result) {
-      setScanResult(result);
-    } else {
-      setScanError("Prediction failed. Please try again.");
-    }
+  const handleScanComplete = (rawResult) => {
+    setAiDetections(rawResult ? normalizePrediction(rawResult) : null);
   };
 
   return (
     <div style={{ background: '#060d06', minHeight: '100vh' }}>
       <Navbar />
       
-      <HeroSection />
+      <HeroSection detections={aiDetections} />
       
       <section className="page-section">
         <div className="container-center">
@@ -210,15 +177,10 @@ export default function App() {
         </div>
       </section>
 
-      {/* ✅ ImageScanner with Backend Integration */}
+      {/* ✅ Image scanner with real backend integration */}
       <section id="image-scanner" className="page-section">
         <div className="container-center">
-          <ImageScanner 
-            onScan={handleImageScan}
-            isScanning={isScanning}
-            scanResult={scanResult}
-            scanError={scanError}
-          />
+          <ImageScanner onScanComplete={handleScanComplete} />
         </div>
       </section>
 

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { predictDisease } from '../services/api';
+import { predictDisease, normalizePrediction } from '../services/api';
 
 const DISEASE_POOL = [
   { label: 'Leaf Blight (Alternaria)', severity: 'high' },
@@ -69,7 +69,7 @@ function drawDetections(canvas, img, detections, progress) {
   });
 }
 
-export default function ImageScanner() {
+export default function ImageScanner({ onScanComplete }) {
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const canvasRef = useRef(null);
@@ -100,6 +100,11 @@ export default function ImageScanner() {
     // Real API call
     const result = await predictDisease(file);
 
+    // Phase 2: forward the finished scan to App (which feeds FarmViewer3D).
+    // Normalisation in api.js handles both backend response shapes; a null
+    // (API failure) clears AI markers so demo zones remain the fallback.
+    if (onScanComplete) onScanComplete(result || null);
+
     if (result && result.detections) {
       const dets = result.detections.map((d, i) => ({
         id: `det-${i}`,
@@ -118,6 +123,21 @@ export default function ImageScanner() {
       if (canvasRef.current && imgRef.current) {
         drawDetections(canvasRef.current, imgRef.current, dets, 1);
       }
+    } else if (result) {
+      // Classifier / local-API response (top-K classes, no bounding boxes):
+      // show the real model output in the report and hand it to the 3D
+      // viewer via onScanComplete. No synthetic boxes are drawn — the model
+      // provides none.
+      const dets = normalizePrediction(result).map((d, i) => ({
+        id: `ai-${i}`,
+        label: d.label,
+        severity: d.severity,
+        confidence: d.confidence * 100,
+      }));
+      detectionsRef.current = dets;
+      setDetections(dets);
+      setScanState('done');
+      setScanProgress(1);
     } else {
       setScanState('idle');
       //alert('Prediction failed. Please try again.');
