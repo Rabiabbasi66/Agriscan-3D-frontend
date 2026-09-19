@@ -102,77 +102,84 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
     // Phase 8: notify the app that a real capture/inference is in flight.
     if (typeof onScanningStateChange === 'function') onScanningStateChange(true);
 
-    // Convert base64 to File
-    const response = await fetch(src);
-    const blob = await response.blob();
-    const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
+    try {
+      // Convert base64 to File. fetch() can reject (offline sample photo,
+      // revoked URL, blocked network) — the catch below keeps the scan
+      // lifecycle consistent instead of leaving the UI stuck "scanning".
+      const response = await fetch(src);
+      const blob = await response.blob();
+      const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
 
-    // Real API call
-    const result = await predictDisease(file);
+      // Real API call
+      const result = await predictDisease(file);
 
-    // Phase 8: capture/inference finished — clear the flight capture flag
-    // on BOTH success and failure paths.
-    if (typeof onScanningStateChange === 'function') onScanningStateChange(false);
+      if (!result) {
+        // Phase 13: inference failed / backend unavailable — show a real
+        // error, forward null (clears AI markers, demo zones stay fallback)
+        // and do NOT emit a scan-complete event (analytics must not count it).
+        setScanState('error');
+        setScanError('Scan failed. The AI service could not be reached — please try again.');
+        if (onScanComplete) onScanComplete(null);
+        return;
+      }
 
-    if (!result) {
-      // Phase 13: inference failed / backend unavailable — show a real
-      // error, forward null (clears AI markers, demo zones stay fallback)
-      // and do NOT emit a scan-complete event (analytics must not count it).
-      setScanState('error');
-      setScanError('Scan failed. The AI service could not be reached — please try again.');
-      if (onScanComplete) onScanComplete(null);
-      return;
-    }
+      // Phase 2: forward the finished scan to App (which feeds FarmViewer3D).
+      // Normalisation in api.js handles both backend response shapes; a null
+      // (API failure) clears AI markers so demo zones remain the fallback.
+      if (onScanComplete) onScanComplete(result || null);
 
-    // Phase 2: forward the finished scan to App (which feeds FarmViewer3D).
-    // Normalisation in api.js handles both backend response shapes; a null
-    // (API failure) clears AI markers so demo zones remain the fallback.
-    if (onScanComplete) onScanComplete(result || null);
-
-    // Phase 6: capture the real response metadata when present.
-    if (result) {
+      // Phase 6: capture the real response metadata when present.
       setScanMeta({
         predictionId: typeof result.prediction_id === 'string' ? result.prediction_id : null,
         inferenceTimeMs: typeof result.inference_time_ms === 'number' ? result.inference_time_ms : null,
       });
-    }
 
-    if (result && result.detections) {
-      const dets = result.detections.map((d, i) => ({
-        id: `det-${i}`,
-        label: d.class || 'Unknown',
-        severity: 'medium',
-        confidence: d.confidence * 100 || 0,
-        x: d.bbox?.[0] || 0.2,
-        y: d.bbox?.[1] || 0.2,
-        w: d.bbox?.[2] - d.bbox?.[0] || 0.2,
-        h: d.bbox?.[3] - d.bbox?.[1] || 0.2,
-      }));
-      detectionsRef.current = dets;
-      setDetections(dets);
-      setScanState('done');
-      setScanProgress(1);
-      if (canvasRef.current && imgRef.current) {
-        drawDetections(canvasRef.current, imgRef.current, dets, 1);
+      if (result.detections) {
+        const dets = result.detections.map((d, i) => ({
+          id: `det-${i}`,
+          label: d.class || 'Unknown',
+          severity: 'medium',
+          confidence: d.confidence * 100 || 0,
+          x: d.bbox?.[0] || 0.2,
+          y: d.bbox?.[1] || 0.2,
+          w: d.bbox?.[2] - d.bbox?.[0] || 0.2,
+          h: d.bbox?.[3] - d.bbox?.[1] || 0.2,
+        }));
+        detectionsRef.current = dets;
+        setDetections(dets);
+        setScanState('done');
+        setScanProgress(1);
+        if (canvasRef.current && imgRef.current) {
+          drawDetections(canvasRef.current, imgRef.current, dets, 1);
+        }
+      } else {
+        // Classifier / local-API response (top-K classes, no bounding boxes):
+        // show the real model output in the report and hand it to the 3D
+        // viewer via onScanComplete. No synthetic boxes are drawn — the model
+        // provides none.
+        const dets = normalizePrediction(result).map((d, i) => ({
+          id: `ai-${i}`,
+          label: d.label,
+          severity: d.severity,
+          confidence: d.confidence * 100,
+        }));
+        detectionsRef.current = dets;
+        setDetections(dets);
+        setScanState('done');
+        setScanProgress(1);
       }
-    } else if (result) {
-      // Classifier / local-API response (top-K classes, no bounding boxes):
-      // show the real model output in the report and hand it to the 3D
-      // viewer via onScanComplete. No synthetic boxes are drawn — the model
-      // provides none.
-      const dets = normalizePrediction(result).map((d, i) => ({
-        id: `ai-${i}`,
-        label: d.label,
-        severity: d.severity,
-        confidence: d.confidence * 100,
-      }));
-      detectionsRef.current = dets;
-      setDetections(dets);
-      setScanState('done');
-      setScanProgress(1);
-    } else {
-      setScanState('idle');
-      //alert('Prediction failed. Please try again.');
+    } catch {
+      // Image load / network failure before inference: end in the SAME
+      // visible failure state as an API failure — the HUD "capturing" flag
+      // and the scan button are released in `finally`, AI markers are
+      // cleared, and analytics is not notified (no scan-complete event).
+      setScanState('error');
+      setScanError('Scan failed. The image could not be loaded — please try again.');
+      if (onScanComplete) onScanComplete(null);
+    } finally {
+      // Phase 8: capture/inference finished — clear the flight capture flag
+      // on BOTH success and failure paths.
+      if (typeof onScanningStateChange === 'function') onScanningStateChange(false);
     }
   }, []);
 
@@ -182,6 +189,7 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
     setScanProgress(0);
     setDetections([]);
     setScanMeta(null);
+    setScanError(null);
     detectionsRef.current = [];
     const img = new Image();
     img.onload = () => {
@@ -198,7 +206,13 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
   }, []);
 
   const handleFile = (file) => {
-    if (!file.type.startsWith('image/')) return;
+    if (!file.type.startsWith('image/')) {
+      // Phase 8: understandable feedback instead of a silent no-op when a
+      // non-image is dropped/pasted/selected. Not a scan failure, so the
+      // scan state stays 'idle' (no "Scan Failed" header is shown).
+      setScanError('Unsupported file — please choose an image (JPG, PNG, or WebP).');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = e => {
       const src = e.target?.result;
@@ -339,11 +353,13 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
           </div>
 
           {/* Scan results summary */}
-          {scanState === 'error' && scanError && (
+          {scanError && (
             <div className="agri-card p-4" style={{ border: '1px solid rgba(255,48,48,0.4)' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#ff3030', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                Scan Failed
-              </span>
+              {scanState === 'error' && (
+                <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#ff3030', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  Scan Failed
+                </span>
+              )}
               <p className="text-sm mt-2" style={{ color: '#ff9020' }}>{scanError}</p>
             </div>
           )}

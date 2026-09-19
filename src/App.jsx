@@ -11,9 +11,6 @@ import FieldAnalytics from './components/FieldAnalytics';
 import { AuthProvider } from './context/AuthContext';
 import { normalizePrediction } from './services/api';
 
-// ✅ The AI prediction client lives in src/services/api.js (single source of
-// truth). ImageScanner calls it directly; App lifts each scan's normalised
-// detections up so the 3D farm viewer can visualise them (Phase 2).
 
 function HeroSection({ detections = null, selectedDetectionId = null, onDetectionSelect = null, capturing = false }) {
   return (
@@ -148,11 +145,7 @@ function Footer() {
   )
 }
 
-// ✅ Main App Component
-// ImageScanner owns its own scan UI state and calls the prediction API from
-// src/services/api.js. It reports each finished scan to App via
-// `onScanComplete`; App feeds the normalised detections into FarmViewer3D so
-// AI results appear as 3D disease markers (demo zones stay as fallback).
+
 export default function App() {
   const [aiDetections, setAiDetections] = useState(null);
   // Phase 7: shared selection — the scanner report list and the 3D scene

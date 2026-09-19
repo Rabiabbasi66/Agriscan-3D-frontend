@@ -115,3 +115,12 @@ backend/models/
 backend/plantvillage_dataset/
 backend/agriscan_model/
 backend/.pytest_cache/
+
+# ─────────────────────────────────────────────────────────────────────────
+# Nested repository guard (Phase 14)
+# The backend is its OWN Git repository at backend/ (separate origin and
+# history). It must stay untracked in THIS repo — `git add .` from the root
+# would otherwise embed the entire nested repository. Never stage backend/
+# from here; work inside backend/ with its own git commands instead.
+# ─────────────────────────────────────────────────────────────────────────
+backend/

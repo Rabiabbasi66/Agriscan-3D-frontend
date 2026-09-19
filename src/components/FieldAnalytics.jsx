@@ -49,7 +49,10 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
 
   // Session analytics: count REAL completed scans (not fabricated).
   useEffect(() => {
-    const handler = (rawResult) => {
+    // addEventListener passes the CustomEvent — the raw scan result App
+    // dispatches lives on `.detail` (never dispatched for failed scans).
+    const handler = (event) => {
+      const rawResult = event && event.detail;
       setSessionScans(n => n + 1);
       if (rawResult && typeof rawResult === 'object') {
         const data = rawResult.data || {};

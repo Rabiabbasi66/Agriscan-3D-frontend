@@ -1,18 +1,20 @@
 // src/services/api.js
 // Central AI prediction client for the image scanner UI.
 //
-// Endpoints + keys can be overridden with Vite env vars (VITE_API_URL /
-// VITE_API_KEY / VITE_API_BASE_URL / VITE_AUTH_TOKEN). Defaults keep the
-// previously hard-coded values so runtime behaviour is unchanged.
+// Endpoints + keys are configured with Vite env vars (VITE_API_URL /
+// VITE_API_KEY / VITE_API_BASE_URL / VITE_AUTH_TOKEN). The classifier API
+// key is read from the environment only — it is never hard-coded here.
 const API_URL = import.meta.env.VITE_API_URL || 'https://predict-6a8873db8618f7c7935cc654-dproatj77a-ww.a.run.app'
-const API_KEY = import.meta.env.VITE_API_KEY || 'ul_01786bfbd9c0e301e77a5693dcc13a5671d98597'
+const API_KEY = import.meta.env.VITE_API_KEY || ''
 
-// FastAPI backend (history endpoints). VITE_API_BASE_URL wins, then the
-// shared VITE_API_URL, then the local FastAPI dev default (uvicorn on :8000,
-// matching the backend's own CORS config).
+// FastAPI backend (auth + history endpoints). VITE_API_BASE_URL wins, then
+// the local FastAPI dev default (uvicorn on :8000, matching the backend's
+// own CORS config). Intentionally NOT shared with VITE_API_URL: the remote
+// classifier and the FastAPI backend are separate services — sending
+// auth/history calls to the classifier would 404.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
-  || import.meta.env.VITE_API_URL
   || 'http://localhost:8000'
+
 
 // Auth token store (Phase 5). The token lives in sessionStorage for the tab
 // session only — never hardcoded, never committed, and cleared on logout.
@@ -131,7 +133,11 @@ export const loginUser = async ({ email, password }) => {
 
   const body = await response.json().catch(() => null)
   if (!response.ok) {
-    throw new Error(body?.detail || 'Invalid email or password')
+    throw new Error(
+      (Array.isArray(body?.detail)
+        ? body.detail[0]?.msg
+        : body?.detail) || 'Invalid email or password'
+    )
   }
   return body
 }
