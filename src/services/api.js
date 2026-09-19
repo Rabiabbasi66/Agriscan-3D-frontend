@@ -4,7 +4,14 @@
 // Endpoints + keys are configured with Vite env vars (VITE_API_URL /
 // VITE_API_KEY / VITE_API_BASE_URL / VITE_AUTH_TOKEN). The classifier API
 // key is read from the environment only — it is never hard-coded here.
-const API_URL = import.meta.env.VITE_API_URL || 'https://predict-6a8873db8618f7c7935cc654-dproatj77a-ww.a.run.app'
+// Only trust VITE_API_URL when it looks like a real https URL: an env value
+// corrupted by stray quotes/semicolons (e.g. from copying a JS snippet) must
+// fall back to the deployed classifier instead of silently misrouting scans
+// to a relative path on the app's own origin.
+const envApiUrl = (import.meta.env.VITE_API_URL || '').trim()
+const API_URL = envApiUrl.startsWith('https://')
+  ? envApiUrl
+  : 'https://predict-6a8873db8618f7c7935cc654-dproatj77a-ww.a.run.app'
 const API_KEY = import.meta.env.VITE_API_KEY || ''
 
 // FastAPI backend (auth + history endpoints). VITE_API_BASE_URL wins, then
