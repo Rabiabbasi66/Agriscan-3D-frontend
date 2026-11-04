@@ -29,7 +29,7 @@ ENV/
 # Project Specific
 # =====================
 # Models (Agar model ko GitHub pe nahi push karna)
-models/
+/backend/models/
 *.pt
 *.pth
 *.onnx
@@ -116,11 +116,11 @@ backend/plantvillage_dataset/
 backend/agriscan_model/
 backend/.pytest_cache/
 
-# ─────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Nested repository guard (Phase 14)
 # The backend is its OWN Git repository at backend/ (separate origin and
-# history). It must stay untracked in THIS repo — `git add .` from the root
+# history). It must stay untracked in THIS repo â€” `git add .` from the root
 # would otherwise embed the entire nested repository. Never stage backend/
 # from here; work inside backend/ with its own git commands instead.
-# ─────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 backend/
