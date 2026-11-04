@@ -1,0 +1,7 @@
+# AgriScan 3D — Hugging Face Space (ZeroGPU) dependencies.
+# Derived from the ACTUAL imports of the inference path only:
+#   app.py → gradio, torch, PIL, disease_predictor (→ ultralytics)
+# No FastAPI/MongoDB/auth/S3 deps — the Space is inference-only by design.
+gradio==5.23.0
+ultralytics==8.3.56
+Pillow==11.0.0

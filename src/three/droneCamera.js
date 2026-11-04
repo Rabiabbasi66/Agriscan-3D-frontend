@@ -1,24 +1,17 @@
 /**
- * Virtual drone camera → farm-ground projection (Phase 3).
+ * Virtual drone camera → farm-ground projection.
  *
- * ── WHAT THIS IS ────────────────────────────────────────────────────────
- * The detection pipeline is a CLASSIFIER over a photo taken by the virtual
- * drone; the backend provides no telemetry. To place disease markers in the
- * 3D farm consistently with the drone's flight, this module models the
- * drone's downward-looking camera as a NADIR PINHOLE CAMERA:
+ * The backend returns no telemetry, so to place markers consistently with the
+ * flight path the drone's camera is modelled as a nadir pinhole:
  *
- *   drone position (x, y, z)            camera centre
- *   optical axis         straight down (−Y)
- *   image (nx, ny)       normalised [0..1]², origin top-left
+ *   drone position (x, y, z)   camera centre
+ *   optical axis               straight down (−Y)
+ *   image (nx, ny)             normalised [0..1]², origin top-left
  *
- * A pixel is un-projected through the pinhole and intersected with the
- * ground plane y=0, yielding the farm location the camera was looking at.
- * The mapping is DETERMINISTIC (same drone position + pixel ⇒ same point)
- * and mathematically consistent with the flight path — but it is a VIRTUAL
- * camera model, NOT GPS and NOT geospatial ground truth. When real drone
- * telemetry becomes available, replace this file's model only; the marker
- * API (`setAiMarkers`) stays unchanged.
- * ────────────────────────────────────────────────────────────────────────
+ * A pixel is un-projected and intersected with the ground plane y=0. The
+ * result is deterministic but it is a virtual camera model, NOT GPS or
+ * geospatial ground truth. Real telemetry would replace this file only; the
+ * marker API (setAiMarkers) stays unchanged.
  */
 import * as THREE from 'three'
 
@@ -70,8 +63,8 @@ export function projectImagePointToGround(nx, ny, camState) {
   if (Math.abs(dir.y) < 1e-6) return null
   dir.normalize()
 
-  // Ground plane y=0: t = -p.y / d.y must be a real distance below the
-  // drone (rejects degenerate at-ground/under-ground poses) and in range.
+  // Ground plane y=0: t = -p.y / d.y must be a real distance below the drone
+  // (rejects at-ground/under-ground poses) and within range.
   const t = -camState.position.y / dir.y
   if (t < 0.1 || t > DRONE_CAM.maxRayDistance) return null
 

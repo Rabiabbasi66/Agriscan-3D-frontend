@@ -1,16 +1,6 @@
-// src/components/FieldAnalytics.jsx
-// Field Analytics (Phase 9) — lightweight statistics computed ONLY from real
-// data: the authenticated user's persisted predictions (existing
-// GET /api/v1/predictions — same JWT ownership model as Prediction History)
-// merged with the current session's scans. No separate analytics backend,
-// no fake numbers, no polling (single fetch per login/session change).
-//
-// Metrics shown only when genuinely available:
-//   total / healthy / diseased predictions, class distribution (from the
-//   history pages fetched), latest scan timestamp, session scan count, and
-//   per-class average confidence from the current session result.
-// Anonymous visitors see session-only analytics (their own scans); persisted
-// history requires sign-in — identical isolation rules to Prediction History.
+// Statistics computed only from real data: the signed-in user's persisted
+// predictions (GET /api/v1/predictions) plus this session's scans. Anonymous
+// visitors see session-only figures; history requires sign-in.
 import React, { useEffect, useMemo, useState } from 'react';
 import { getPredictions } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -47,10 +37,8 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
   const [sessionScans, setSessionScans] = useState(0);
   const [lastSession, setLastSession] = useState(null); // { when, diseased, healthy, topLabel, topConf }
 
-  // Session analytics: count REAL completed scans (not fabricated).
+  // Session analytics: only completed scans dispatch this event.
   useEffect(() => {
-    // addEventListener passes the CustomEvent — the raw scan result App
-    // dispatches lives on `.detail` (never dispatched for failed scans).
     const handler = (event) => {
       const rawResult = event && event.detail;
       setSessionScans(n => n + 1);
@@ -71,7 +59,7 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
     return () => window.removeEventListener('agriscan:scan-complete', handler);
   }, []);
 
-  // Persisted analytics: one bounded fetch per auth state — no polling.
+  // One bounded fetch per auth state — no polling.
   useEffect(() => {
     if (isRestoring) return;
     if (!isLoggedIn) {
@@ -88,8 +76,8 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
         setStatus('error');
         return;
       }
-      // One extra page when the first is full — keeps this bounded while
-      // giving small histories complete coverage for distribution stats.
+      // One extra page when the first is full, so small histories get complete
+      // coverage for the distribution while the work stays bounded.
       let docs = first.data;
       if (first.data.length === PAGE_SIZE && first.total_pages > 1) {
         const second = await getPredictions({ page: 2, pageSize: PAGE_SIZE });
@@ -106,14 +94,12 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
     };
   }, [isLoggedIn, isRestoring]);
 
-  // All statistics derived from real documents only.
   const stats = useMemo(() => {
     const docs = history || [];
     const total = docs.length;
     const healthy = docs.filter(d => d.is_healthy).length;
     const diseased = total - healthy;
 
-    // Class distribution over real persisted class names.
     const byClass = new Map();
     docs.forEach(d => {
       const key = d.class_name || `${d.crop || 'Unknown'} — ${d.disease || 'Unknown'}`;

@@ -11,8 +11,7 @@ import FieldAnalytics from './components/FieldAnalytics';
 import { AuthProvider } from './context/AuthContext';
 import { normalizePrediction } from './services/api';
 
-
-function HeroSection({ detections = null, selectedDetectionId = null, onDetectionSelect = null, capturing = false }) {
+function HeroSection({ detections = null, selectedDetectionId = null, onDetectionSelect = null }) {
   return (
     <div className="hero-wrapper">
       <div className="absolute inset-0 pt-16">
@@ -148,22 +147,17 @@ function Footer() {
 
 export default function App() {
   const [aiDetections, setAiDetections] = useState(null);
-  // Phase 7: shared selection — the scanner report list and the 3D scene
-  // highlight stay in sync through this single source of truth.
+  // Single source of truth for the scanner report list ↔ 3D scene highlight.
   const [selectedDetectionId, setSelectedDetectionId] = useState(null);
 
   const handleScanComplete = (rawResult) => {
     setAiDetections(rawResult ? normalizePrediction(rawResult) : null);
     setSelectedDetectionId(null);
-    // Phase 13/9: session analytics observe only REAL completed scans —
-    // failed scans (rawResult === null) must not increment counters.
+    // Failed scans pass null and must not reach session analytics.
     if (rawResult) {
       window.dispatchEvent(new CustomEvent('agriscan:scan-complete', { detail: rawResult }));
     }
   };
-
-  // Phase 8: real capture/inference lifecycle from ImageScanner.
-  const [isCapturing, setIsCapturing] = useState(false);
 
   return (
     <AuthProvider>
@@ -174,7 +168,6 @@ export default function App() {
         detections={aiDetections}
         selectedDetectionId={selectedDetectionId}
         onDetectionSelect={setSelectedDetectionId}
-        capturing={isCapturing}
       />
       
       <section className="page-section">
@@ -195,26 +188,22 @@ export default function App() {
         </div>
       </section>
 
-      {/* ✅ Image scanner with real backend integration */}
       <section id="image-scanner" className="page-section">
         <div className="container-center">
           <ImageScanner
             onScanComplete={handleScanComplete}
             onDetectionSelect={setSelectedDetectionId}
             selectedDetectionId={selectedDetectionId}
-            onScanningStateChange={setIsCapturing}
           />
         </div>
       </section>
 
-      {/* ✅ Prediction history (Phase 4) — authenticated user's saved scans */}
       <section id="prediction-history" className="page-section">
         <div className="container-center">
           <PredictionHistory />
         </div>
       </section>
 
-      {/* ✅ Field analytics (Phase 9) — real persisted prediction data only */}
       <section id="field-analytics" className="page-section">
         <div className="container-center">
           <FieldAnalytics onDetectionSelect={setSelectedDetectionId} />

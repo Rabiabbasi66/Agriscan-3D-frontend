@@ -173,6 +173,8 @@ export default function TeamSection() {
                   src={member.img}
                   alt={member.name}
                   className="w-full h-full object-cover"
+                  loading="lazy"
+                  decoding="async"
                   onError={e => { e.target.style.display = 'none' }}
                 />
               </div>

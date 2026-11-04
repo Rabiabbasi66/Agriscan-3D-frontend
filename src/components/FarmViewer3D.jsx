@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import FarmSceneController from '../three/FarmSceneController'
 import { DISEASE_ZONES } from '../three/config'
 
@@ -6,30 +6,29 @@ import { DISEASE_ZONES } from '../three/config'
 const formatPosition = (p) => `x ${p.x.toFixed(1)} · z ${p.z.toFixed(1)}`
 
 /**
- * FarmViewer3D — React shell around the Three.js farm scene.
+ * React shell around the Three.js farm scene. All WebGL work lives in
+ * src/three/; this component owns the mount node, the capability badge and the
+ * HUD overlay.
  *
- * All WebGL/scene logic lives in src/three/ (FarmSceneController + builders);
- * this component only owns the mount node, the WebGPU capability badge and
- * the HUD overlay. Visual output and all HUD text are unchanged.
- *
- * Phase 2: accepts an optional `detections` prop (normalised AI scan result,
- * see normalizePrediction() in src/services/api.js). When present, each
- * detection becomes a marker in the 3D farm; when absent/empty the existing
+ * `detections` (normalised AI scan results) become 3D markers; without them the
  * demo disease zones remain as the fallback visualisation.
  */
-export default function FarmViewer3D({ detections = null, selectedDetectionId: selectedDetectionIdProp = null, onSelectionChange = null, capturing = false }) {
+export default function FarmViewer3D({ detections = null, selectedDetectionId: selectedDetectionIdProp = null, onSelectionChange = null }) {
   const mountRef = useRef(null)
   const controllerRef = useRef(null)
   const [webgpu, setWebgpu] = useState(null)
   const [scanning, setScanning] = useState(true)
   const [droneSpeed, setDroneSpeed] = useState(0.004)
-  // Phase 3: metadata of the currently selected AI marker (or null).
   const [selectedMeta, setSelectedMeta] = useState(null)
-  // Phase 7: id of the detection whose marker is highlighted (list ↔ scene).
   const [selectedDetectionId, setSelectedDetectionId] = useState(null)
-  // Phase 8: live mission readout (altitude/loop position from the real
-  // drone mesh state; sampled on the existing animation clock — no new loop).
   const [mission, setMission] = useState(null)
+
+  // Computed once per detections change: the HUD reads it in several places and
+  // re-renders on every mission tick.
+  const diseaseCount = useMemo(
+    () => (detections || []).filter(d => d.severity !== 'healthy').length,
+    [detections],
+  )
 
   // Click-to-inspect: raycast to the ground, snap to the nearest AI marker.
   const handleCanvasClick = useCallback((event) => {
@@ -38,18 +37,13 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
     const idx = controller.findNearestMarker(controller.pickGroundPoint(event))
     const meta = idx === null ? null : controller.aiMarkerGroup.children[idx]?.userData.aiMeta || null
     setSelectedMeta(meta)
-    // Keep the list↔scene selection in sync (Phase 7), upward as well so
-    // the scanner report highlights the same row.
+    // Propagate upward so the scanner report highlights the same row.
     const id = meta ? meta.detectionId ?? null : null
     setSelectedDetectionId(id)
     if (typeof onSelectionChange === 'function') onSelectionChange(id)
   }, [onSelectionChange])
 
-  /**
-   * Phase 7: focus + highlight the marker for a detection id (list → scene).
-   * Selection only exists when a real association exists — unknown ids are
-   * ignored and null clears the highlight.
-   */
+  /** Focus + highlight the marker for a detection id (list → scene). */
   const focusAiMarker = useCallback((detectionId) => {
     const controller = controllerRef.current
     if (!controller) return
@@ -72,7 +66,7 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
     setSelectedMeta(null)
   }, [detections])
 
-  // Phase 7: external selection (e.g. Prediction History) drives focus.
+  // External selection (e.g. Prediction History) drives focus.
   useEffect(() => {
     if (selectedDetectionIdProp !== null) {
       focusAiMarker(selectedDetectionIdProp)
@@ -90,7 +84,6 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
     const controller = new FarmSceneController(mountRef.current)
     controllerRef.current = controller
 
-    // Phase 3: marker inspection clicks on the canvas.
     controller.container.addEventListener('click', handleCanvasClick)
 
     return () => {
@@ -109,23 +102,31 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
     controllerRef.current?.setDroneSpeed(droneSpeed)
   }, [droneSpeed])
 
-  // Phase 8: sample the controller's real mission state on a slow cadence
-  // (250 ms) — HUD-only updates, never a scene rebuild.
+  // HUD-only mission sampling at 4 Hz, never a scene rebuild. ALT renders to
+  // one decimal place, so a tick that would not change that text (paused, or a
+  // sub-0.05 m change) returns the previous state and React skips the render.
   useEffect(() => {
     const id = setInterval(() => {
       const controller = controllerRef.current
-      if (controller) setMission(controller.getMissionState())
+      if (!controller) return
+      const next = controller.getMissionState()
+      setMission(prev => (
+        prev
+        && prev.scanning === next.scanning
+        && Math.abs(prev.altitude - next.altitude) < 0.05
+          ? prev
+          : next
+      ))
     }, 250)
     return () => clearInterval(id)
   }, [])
 
-  // Phase 2: AI scan detections → 3D markers. The controller rebuilds and
-  // disposes its AI marker group; an empty list clears AI markers so the
-  // demo disease zones remain the fallback visualisation.
+  // Detections → 3D markers. The controller disposes and rebuilds its marker
+  // group; an empty list clears AI markers so the demo zones stay visible.
   useEffect(() => {
     if (controllerRef.current) {
-      // Phase 3: project through the drone's nadir camera at the live
-      // position; aiMarkers falls back to the survey grid without one.
+      // Projected through the drone's nadir camera; aiMarkers falls back to
+      // the survey grid without a position.
       const pos = controllerRef.current.getDroneLivePosition()
       controllerRef.current.setAiMarkers(detections || [], pos)
       setSelectedMeta(null)
@@ -159,17 +160,10 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
             ALT: <span style={{ color: '#e8f5e8' }}>{mission ? `${mission.altitude.toFixed(1)}m` : '10.2m'}</span>
           </span>
         </div>
-        {capturing && (
+        {diseaseCount > 0 && (
           <div className="agri-card px-3 py-1.5">
             <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.08em' }}>
-              CAPTURING
-            </span>
-          </div>
-        )}
-        {(detections || []).filter(d => d.severity !== 'healthy').length > 0 && (
-          <div className="agri-card px-3 py-1.5">
-            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.08em' }}>
-              {(detections || []).filter(d => d.severity !== 'healthy').length} DISEASE MAPPED
+              {diseaseCount} DISEASE MAPPED
             </span>
           </div>
         )}

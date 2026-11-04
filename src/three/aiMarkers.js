@@ -1,36 +1,27 @@
 /**
- * AI detection → 3D farm marker mapping (Phase 3).
+ * AI detection → 3D farm marker mapping.
  *
- * ── WHAT THIS IS ────────────────────────────────────────────────────────
- * The image scanner's YOLOv8 result carries NO GPS/telemetry — the backend
- * returns only class + confidence (+ bbox for future detection models).
+ * The scan result carries no GPS or telemetry (class + confidence only), so
+ * markers are placed by un-projecting through the drone's nadir pinhole camera
+ * (droneCamera.js), which is deterministic and consistent with the flight path.
+ * Without camera state a fixed survey grid is used instead.
  *
- * Preferred path (Phase 3): un-project detections through the drone's
- * NADIR PINHOLE CAMERA (src/three/droneCamera.js) so each marker lands
- * where the virtual camera was looking when the photo was captured —
- * deterministic and consistent with the flight path.
- *
- * Fallback path: the Phase 2 survey grid, an approximate deterministic
- * demo projection, used only when camera state cannot be derived.
- *
- * These are NOT real GPS/geospatial positions in either case and must
- * never be presented as such. When real drone telemetry becomes available,
- * replace only droneCamera.js / the mapping below — the controller API
- * (`setAiMarkers`) stays the same.
- * ────────────────────────────────────────────────────────────────────────
+ * Neither path is a real geospatial position and must never be presented as
+ * one. Real telemetry would replace droneCamera.js only; the controller API
+ * (setAiMarkers) stays the same.
  */
 import * as THREE from 'three'
 import { SEVERITY_HEX } from './config'
 import { computeNadirCameraState, projectImagePointToGround } from './droneCamera'
 
-/** Fallback survey-grid constants (used only when no camera state exists). */
+/** Fallback survey grid, used only when no camera state exists. */
 const AI_AREA_ORIGIN = { x: -12, z: 34 }
 const GRID_COLS = 5
 const CELL_W = 6
 const CELL_D = 6
 const MARKER_Y = 0.15
 
-/** Marker geometry constants (Phase 3: pin at cap height, ring on ground). */
+/** Marker geometry: pin at cap height, ring on the ground. */
 const PIN_CAP_Y = 1.6
 const PIN_CAP_R = 0.55
 const PIN_HEAD_R = 1.0
@@ -40,20 +31,17 @@ const RING_HALF_W = 0.3
 const RING_SEGMENTS = 48
 const APPEAR_DURATION = 1.0
 
-/** Phase 7: highlight colour for the selected marker (project accent). */
+/** Highlight colour for the selected marker (project accent). */
 const SELECTED_HEX = 0xffffff
 
 /**
  * Map one detection to a 3D position.
- *
  * @param {object} detection normalised detection (bbox, label, confidence…)
  * @param {number} index index in the confidence-ordered detection list
  * @param {object|null} cameraState result of computeNadirCameraState() or null
  * @returns {{ position: THREE.Vector3, source: 'camera'|'grid' }}
  */
-export function mapDetectionToPosition(detection, index, cameraState = null) {
-  // Preferred: project the detection's image position through the drone's
-  // nadir camera onto the ground plane.
+function mapDetectionToPosition(detection, index, cameraState = null) {
   if (cameraState && Array.isArray(detection.bbox) && detection.bbox.length === 4) {
     const nx = (detection.bbox[0] + detection.bbox[2]) / 2
     const ny = (detection.bbox[1] + detection.bbox[3]) / 2
@@ -61,7 +49,7 @@ export function mapDetectionToPosition(detection, index, cameraState = null) {
     if (hit) return { position: hit, source: 'camera' }
   }
 
-  // Fallback: Phase 2 survey grid (approximate deterministic demo layout).
+  // Fallback: deterministic survey grid.
   let col
   let row
   if (Array.isArray(detection.bbox) && detection.bbox.length === 4) {
@@ -93,8 +81,8 @@ function severityColor(severity) {
 
 /**
  * Build one AI marker: a vertical pin (cap + cone + ground ring) in the
- * project's disease-red visual language, with metadata on userData.
- * `appearT` starts at 0; the controller advances it for the appear animation.
+ * project's disease-red language, with metadata on userData. The controller
+ * advances `appearT` for the appear animation.
  */
 function buildAiMarker(detection, mapping) {
   const color = severityColor(detection.severity)
@@ -169,17 +157,12 @@ function disposeMarker(marker) {
 /**
  * Replace the AI marker group's contents with markers for `detections`.
  *
- * Full teardown-and-rebuild per scan: previous markers are disposed (no
- * leaking geometries/materials), duplicates are impossible by construction,
- * and a zero-length list simply empties the group (demo zones untouched —
- * they live in a separate group owned by the controller).
+ * Full teardown and rebuild per scan: previous markers are disposed, so
+ * geometries cannot leak or duplicate, and an empty list empties the group
+ * (the demo disease zones live in a separate group and are untouched).
  *
- * Healthy classifications (`severity: 'healthy'`) are NOT drawn as farm
- * markers — markers mean "disease found here". Healthy results still appear
- * in the scanner's report panel.
- *
- * When `dronePosition` is given, detections are projected through the
- * drone's nadir camera (Phase 3); otherwise the survey-grid fallback applies.
+ * Healthy classifications are not drawn — a marker means "disease found
+ * here"; healthy results still appear in the scanner report.
  *
  * @param {THREE.Group} group persistent AI marker group (created once)
  * @param {Array} detections normalised detections from normalizePrediction()
@@ -205,8 +188,7 @@ export function rebuildAiMarkers(group, detections, dronePosition = null) {
 
 /**
  * Advance every marker's appear animation. tMs = milliseconds since rebuild.
- * Phase 10: skips traversal entirely once every marker has fully appeared
- * (one boolean flag instead of per-frame scene traversal afterwards).
+ * Traversal stops entirely once all markers have appeared.
  */
 export function updateAppearAnimations(group, tMs) {
   if (group.userData.appearComplete) return
@@ -230,11 +212,9 @@ export function updateAppearAnimations(group, tMs) {
 }
 
 /**
- * Phase 7: highlight the marker whose aiMeta.detectionId matches.
- *
- * Materials are re-coloured in place (no new geometries/materials, nothing
- * allocated per frame). Passing `detectionId = null` clears the highlight.
- * The pulse ring is left alone — its opacity is driven by the pulse clock.
+ * Highlight the marker whose aiMeta.detectionId matches, re-colouring its
+ * materials in place (nothing is allocated). `null` clears the highlight. The
+ * pulse ring is skipped because its opacity is driven by the pulse clock.
  *
  * @param {THREE.Group} group AI marker group
  * @param {string|null} detectionId detection id to highlight (or null)

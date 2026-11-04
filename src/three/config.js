@@ -1,16 +1,14 @@
 /**
- * Shared configuration for the AgriScan 3D farm scene.
- *
- * Single source of truth for the disease marker data and severity colours.
- * The 3D field markers and the HUD overlay both read from here so they can
- * never drift apart. (Phase 2: real AI detections will feed the same shapes.)
+ * Shared configuration for the 3D farm scene: the demo disease zones, the
+ * severity palette and the drone flight constants. The scene builders and the
+ * HUD both read from here so they cannot drift apart.
  */
 
 /** Size of the square ground plane in world units. */
 export const FIELD_SIZE = 120
 
 /**
- * Demo disease zones currently visualised in the field.
+ * Demo disease zones shown when no AI scan is active.
  * x/z are world coordinates on the ground plane, radius in world units.
  */
 export const DISEASE_ZONES = [
@@ -20,20 +18,17 @@ export const DISEASE_ZONES = [
   { x: -8, z: 16, radius: 3.5, label: 'Rust', severity: 'low' },
 ]
 
-/** Material colours (hex numbers) per severity — used by the 3D markers. */
+/** Material colours (hex numbers) per severity, used by the 3D markers. */
 export const SEVERITY_HEX = {
   high: 0xff2020,
   medium: 0xff6020,
   low: 0xffaa20,
 }
 
-/** Flight constants for the virtual drone (unchanged from Phase 1 baseline). */
 export const DRONE = {
-  /** Initial spawn height. */
-  spawnY: 12,
   /** Vertical offset of the drone's downward spotlight below the body. */
   lightOffsetY: -3,
-  /** Per-frame rotation increment applied to each rotor while scanning. */
+  /** Per-frame rotor spin while scanning. */
   rotorSpinActive: 0.5,
   /** Per-frame rotor spin while paused (slow idle). */
   rotorSpinIdle: 0.05,

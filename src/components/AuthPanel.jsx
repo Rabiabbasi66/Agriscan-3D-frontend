@@ -1,8 +1,5 @@
-// src/components/AuthPanel.jsx
-// Minimal authentication controls (Phase 5) — login / register / logout
-// using the existing FastAPI JWT endpoints through the shared api.js client.
-// Rendered inside the Prediction History section; the Navbar is untouched.
-// Styled with the project's existing tokens only.
+// Login / register / logout controls for the JWT endpoints, through the shared
+// api.js client. Rendered inside the Prediction History section.
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 

@@ -45,7 +45,6 @@ export default function ScanDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Scan controls */}
         <div className="agri-card p-5 flex flex-col gap-5">
           <div className="flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--primary)' }}>
@@ -54,7 +53,6 @@ export default function ScanDashboard() {
             <span className="font-display font-600 tracking-wider" style={{ color: 'var(--foreground)', fontSize: '14px', letterSpacing: '0.08em' }}>DRONE CONFIG</span>
           </div>
 
-          {/* Altitude slider */}
           <div>
             <div className="flex justify-between mb-1.5">
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>ALTITUDE</span>
@@ -71,7 +69,6 @@ export default function ScanDashboard() {
             </div>
           </div>
 
-          {/* Speed slider */}
           <div>
             <div className="flex justify-between mb-1.5">
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>SPEED</span>
@@ -84,7 +81,6 @@ export default function ScanDashboard() {
             />
           </div>
 
-          {/* Image frequency */}
           <div>
             <div className="flex justify-between mb-1.5">
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>CAPTURE / 10m</span>
@@ -97,7 +93,6 @@ export default function ScanDashboard() {
             />
           </div>
 
-          {/* Pattern selector */}
           <div>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.06em', display: 'block', marginBottom: '8px' }}>FLIGHT PATTERN</span>
             <div className="grid grid-cols-3 gap-2">
@@ -122,7 +117,6 @@ export default function ScanDashboard() {
             </div>
           </div>
 
-          {/* Crop type */}
           <div>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.06em', display: 'block', marginBottom: '8px' }}>CROP TYPE</span>
             <div className="flex flex-wrap gap-2">
@@ -145,7 +139,6 @@ export default function ScanDashboard() {
             </div>
           </div>
 
-          {/* Launch button */}
           <button
             className="w-full py-3 rounded font-display font-700 tracking-widest transition-all duration-200"
             style={{
@@ -161,7 +154,6 @@ export default function ScanDashboard() {
           </button>
         </div>
 
-        {/* Scan progress + disease breakdown */}
         <div className="agri-card p-5 flex flex-col gap-5">
           <div className="flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--primary)' }}>
@@ -170,7 +162,6 @@ export default function ScanDashboard() {
             <span className="font-display font-600 tracking-wider" style={{ color: 'var(--foreground)', fontSize: '14px', letterSpacing: '0.08em' }}>SCAN PROGRESS</span>
           </div>
 
-          {/* Circular progress */}
           <div className="flex items-center justify-center py-4">
             <div className="relative w-36 h-36">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
@@ -192,7 +183,6 @@ export default function ScanDashboard() {
             </div>
           </div>
 
-          {/* Disease breakdown */}
           <div className="flex flex-col gap-2">
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>
               Detection Breakdown
@@ -220,7 +210,6 @@ export default function ScanDashboard() {
             ))}
           </div>
 
-          {/* Quick stats */}
           <div className="grid grid-cols-2 gap-3 mt-auto">
             {[
               { l: 'Images / session', v: '1,204' },
@@ -236,7 +225,6 @@ export default function ScanDashboard() {
           </div>
         </div>
 
-        {/* Alert feed */}
         <AlertFeed />
       </div>
     </section>

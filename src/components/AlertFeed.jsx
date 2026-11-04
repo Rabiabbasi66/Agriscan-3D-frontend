@@ -48,7 +48,6 @@ export default function AlertFeed() {
 
   return (
     <div className="agri-card h-full flex flex-col" id="detections">
-      {/* Header */}
       <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #1c3a1c' }}>
         <div className="flex items-center gap-2.5">
           <div className="w-2 h-2 rounded-full animate-blink" style={{ background: '#ff3030' }} />
@@ -66,7 +65,6 @@ export default function AlertFeed() {
         </div>
       </div>
 
-      {/* Alert list */}
       <div ref={listRef} className="flex-1 overflow-y-auto p-3 flex flex-col gap-2" style={{ maxHeight: '420px' }}>
         {alerts.map((alert, i) => {
           const cfg = SEVERITY_CONFIG[alert.severity]
@@ -113,7 +111,6 @@ export default function AlertFeed() {
         })}
       </div>
 
-      {/* Footer summary */}
       <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: '1px solid #1c3a1c' }}>
         <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b', letterSpacing: '0.06em' }}>
           {alerts.length} events logged

@@ -128,7 +128,6 @@ export default function StatsCards() {
               e.currentTarget.style.boxShadow = 'none'
             }}
           >
-            {/* Accent top line */}
             <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: `linear-gradient(90deg, ${stat.accent}66, transparent)` }} />
 
             <div className="flex items-start justify-between mb-3">
@@ -158,7 +157,6 @@ export default function StatsCards() {
               </span>
             </div>
 
-            {/* Health bar for applicable cards */}
             {(stat.label.includes('Score') || stat.label.includes('Battery') || stat.label.includes('Confidence')) && (
               <div className="health-bar mt-3">
                 <div

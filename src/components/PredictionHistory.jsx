@@ -1,12 +1,6 @@
-// src/components/PredictionHistory.jsx
-// Prediction History (Phase 4) — displays the authenticated user's saved
-// predictions from the FastAPI backend (GET /api/v1/predictions).
-//
-// States: loading → empty / error / list. Details expand inline (no modal),
-// matching the project's panel language. The bearer token is optional: with
-// no auth integration yet the section shows its empty state; once a login
-// flow supplies a token (VITE_AUTH_TOKEN or a future auth store) history
-// works without any change here.
+// Saved predictions for the signed-in user (GET /api/v1/predictions).
+// States: restoring / signed out / loading / empty / error / list; details
+// expand inline instead of in a modal.
 import React, { useCallback, useEffect, useState } from 'react';
 import { getPredictions, getPredictionById } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -47,7 +41,12 @@ function Detail({ label, value, mono = false }) {
 }
 
 function HistoryRow({ item, details, onToggle, expanded, loadingDetails }) {
-  const tone = statusTone(item.is_healthy);
+  // The model abstained: neither healthy nor diseased. Older rows have no
+  // `detected` field.
+  const undetected = item.detected === false
+  const tone = undetected
+    ? { color: '#6b9b6b', border: 'rgba(107,155,107,0.3)', bg: 'rgba(107,155,107,0.1)' }
+    : statusTone(item.is_healthy);
 
   return (
     <div className="agri-card mb-3 overflow-hidden">
@@ -88,7 +87,7 @@ function HistoryRow({ item, details, onToggle, expanded, loadingDetails }) {
               letterSpacing: '0.08em',
             }}
           >
-            {item.is_healthy ? 'HEALTHY' : 'DISEASED'}
+            {undetected ? 'NO DETECTION' : item.is_healthy ? 'HEALTHY' : 'DISEASED'}
           </span>
 
           <button
@@ -161,7 +160,6 @@ export default function PredictionHistory() {
   useEffect(() => {
     if (isRestoring) return;
     if (!isLoggedIn) {
-      // Not signed in: clear any stale rows and show the sign-in prompt.
       setHistory(null);
       setPagination(null);
       setStatus('signedOut');

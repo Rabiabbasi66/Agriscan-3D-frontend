@@ -1,23 +1,77 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { predictDisease, normalizePrediction } from '../services/api';
 
-const DISEASE_POOL = [
-  { label: 'Leaf Blight (Alternaria)', severity: 'high' },
-  { label: 'Powdery Mildew', severity: 'medium' },
-  { label: 'Root Rot (Pythium)', severity: 'high' },
-  { label: 'Wheat Rust', severity: 'low' },
-  { label: 'Downy Mildew', severity: 'medium' },
-  { label: 'Septoria Leaf Spot', severity: 'medium' },
-  { label: 'Fusarium Wilt', severity: 'high' },
-  { label: 'Healthy Crop', severity: 'healthy' },
-];
-
 const SEV_COLOR = {
   high: '#ff2020',
   medium: '#ff9020',
   low: '#facc15',
   healthy: '#39ff14',
 };
+
+// Checkpoint class names use "Crop___Disease" with underscores; this is the
+// only place they are turned into readable text.
+const prettyClass = (name) => (
+  typeof name === 'string'
+    ? name.replace(/___/g, ' · ').replace(/_/g, ' ').trim()
+    : '—'
+);
+
+// Local leaf photos: the samples must be inside the supported domain, otherwise
+// the scanner's own examples would be rejected by the plant gate.
+const SAMPLES = [
+  { url: '/samples/leaf-tomato.jpg', label: 'Tomato leaf' },
+  { url: '/samples/leaf-blight.jpg', label: 'Late blight' },
+  { url: '/samples/leaf-spots.jpg', label: 'Leaf spots' },
+];
+
+const MONO_LABEL = {
+  fontFamily: 'monospace',
+  fontSize: '9px',
+  color: '#6b9b6b',
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase',
+};
+
+// The classifier only ever looks at a 512 px longest edge (MAX_INFERENCE_EDGE
+// in the backend) and the plant gate resizes to 224, so uploading a 12 MP phone
+// photo spends bandwidth and decode time on pixels no model sees. Downscaling
+// above 1280 px keeps the model input equivalent while cutting a 1.05 MB upload
+// to ~200 kB. Small images pass through untouched and any failure falls back to
+// the original file, so this step can never block a scan.
+const MAX_UPLOAD_EDGE = 1280
+const UPLOAD_JPEG_QUALITY = 0.92
+
+async function downscaleForUpload(file) {
+  if (!file || !file.type || !file.type.startsWith('image/')) return file
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    const longest = Math.max(bitmap.width, bitmap.height)
+    if (longest <= MAX_UPLOAD_EDGE) {
+      bitmap.close?.()
+      return file
+    }
+    const scale = MAX_UPLOAD_EDGE / longest
+    const width = Math.max(1, Math.round(bitmap.width * scale))
+    const height = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      bitmap.close?.()
+      return file
+    }
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(bitmap, 0, 0, width, height)
+    bitmap.close?.()
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', UPLOAD_JPEG_QUALITY))
+    if (!blob || blob.size >= file.size) return file
+    return new File([blob], 'scan.jpg', { type: 'image/jpeg' })
+  } catch {
+    return file
+  }
+}
 
 function drawDetections(canvas, img, detections, progress) {
   const ctx = canvas.getContext('2d');
@@ -69,7 +123,7 @@ function drawDetections(canvas, img, detections, progress) {
   });
 }
 
-export default function ImageScanner({ onScanComplete, onDetectionSelect, selectedDetectionId = null, onScanningStateChange = null }) {
+export default function ImageScanner({ onScanComplete, onDetectionSelect, selectedDetectionId = null }) {
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const canvasRef = useRef(null);
@@ -81,12 +135,16 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
   const [detections, setDetections] = useState([]);
   const [dragOver, setDragOver] = useState(false);
   const detectionsRef = useRef([]);
-  // Phase 6: real backend metadata for the finished scan (null when the
-  // active endpoint does not provide a field — nothing is fabricated).
-  const [scanMeta, setScanMeta] = useState(null);
-  // Phase 13: explicit failure state — a failed scan is visibly different
-  // from a successful one and never feeds analytics or AI markers.
+  // A failed scan is visibly different from a successful one and never feeds
+  // analytics or AI markers.
   const [scanError, setScanError] = useState(null);
+  // Set when the model abstained (top-1 below the confidence threshold).
+  const [scanNote, setScanNote] = useState(null);
+  // The full `data` object of the last prediction, so the report renders only
+  // fields the backend actually returned.
+  const [scanData, setScanData] = useState(null);
+  // { savedToDb, predictionId } from the response envelope.
+  const [scanSaved, setScanSaved] = useState(null);
 
   useEffect(() => {
     if (!canvasRef.current || !imgRef.current || !imageSrc) return;
@@ -97,49 +155,47 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
     setScanState('scanning');
     setScanProgress(0);
     setDetections([]);
-    setScanMeta(null);
     setScanError(null);
-    // Phase 8: notify the app that a real capture/inference is in flight.
-    if (typeof onScanningStateChange === 'function') onScanningStateChange(true);
+    setScanNote(null);
+    setScanData(null);
+    setScanSaved(null);
 
     try {
-      // Convert base64 to File. fetch() can reject (offline sample photo,
-      // revoked URL, blocked network) — the catch below keeps the scan
-      // lifecycle consistent instead of leaving the UI stuck "scanning".
+      // fetch() can reject (offline sample photo, revoked URL, blocked
+      // network) — the catch below keeps the UI out of a stuck "scanning".
       const response = await fetch(src);
       const blob = await response.blob();
       const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
 
-      // Real API call
-      const result = await predictDisease(file);
+      const uploadFile = await downscaleForUpload(file)
+      const result = await predictDisease(uploadFile);
+      const data = result && result.data ? result.data : null;
 
-      if (!result) {
-        // Phase 13: inference failed / backend unavailable — show a real
-        // error, forward null (clears AI markers, demo zones stay fallback)
-        // and do NOT emit a scan-complete event (analytics must not count it).
+      if (!result || !data) {
+        // Backend unavailable or an empty envelope: forward null (clears AI
+        // markers) and emit no scan-complete event.
         setScanState('error');
-        setScanError('Scan failed. The AI service could not be reached — please try again.');
+        setScanError('Scan failed. The AI service returned no result — please try again.');
         if (onScanComplete) onScanComplete(null);
         return;
       }
 
-      // Phase 2: forward the finished scan to App (which feeds FarmViewer3D).
-      // Normalisation in api.js handles both backend response shapes; a null
-      // (API failure) clears AI markers so demo zones remain the fallback.
-      if (onScanComplete) onScanComplete(result || null);
+      if (onScanComplete) onScanComplete(result);
 
-      // Phase 6: capture the real response metadata when present.
-      setScanMeta({
+      setScanData(data);
+      setScanSaved({
+        savedToDb: result.saved_to_db === true,
         predictionId: typeof result.prediction_id === 'string' ? result.prediction_id : null,
-        inferenceTimeMs: typeof result.inference_time_ms === 'number' ? result.inference_time_ms : null,
       });
 
-      if (result.detections) {
+      if (Array.isArray(result.detections) && result.detections.length > 0) {
+        // Object-detection response (not produced by the current classifier
+        // checkpoint): draw the boxes the model actually returned.
         const dets = result.detections.map((d, i) => ({
           id: `det-${i}`,
           label: d.class || 'Unknown',
-          severity: 'medium',
-          confidence: d.confidence * 100 || 0,
+          severity: d.severity || 'medium',
+          confidence: (d.confidence || 0) * 100,
           x: d.bbox?.[0] || 0.2,
           y: d.bbox?.[1] || 0.2,
           w: d.bbox?.[2] - d.bbox?.[0] || 0.2,
@@ -152,34 +208,47 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
         if (canvasRef.current && imgRef.current) {
           drawDetections(canvasRef.current, imgRef.current, dets, 1);
         }
-      } else {
-        // Classifier / local-API response (top-K classes, no bounding boxes):
-        // show the real model output in the report and hand it to the 3D
-        // viewer via onScanComplete. No synthetic boxes are drawn — the model
-        // provides none.
-        const dets = normalizePrediction(result).map((d, i) => ({
-          id: `ai-${i}`,
-          label: d.label,
-          severity: d.severity,
-          confidence: d.confidence * 100,
-        }));
-        detectionsRef.current = dets;
-        setDetections(dets);
-        setScanState('done');
-        setScanProgress(1);
+        return;
       }
-    } catch {
-      // Image load / network failure before inference: end in the SAME
-      // visible failure state as an API failure — the HUD "capturing" flag
-      // and the scan button are released in `finally`, AI markers are
-      // cleared, and analytics is not notified (no scan-complete event).
+
+      // Classification result: top-1 only, the checkpoint produces no boxes.
+      const dets = normalizePrediction(result).map((d, i) => ({
+        id: `ai-${i}`,
+        label: d.label,
+        severity: d.severity,
+        confidence: d.confidence * 100,
+      }));
+      detectionsRef.current = dets;
+      setDetections(dets);
+
+      if (data.detected === false) {
+        const top = typeof data.class_name === 'string'
+          ? data.class_name.replace(/___/g, ' / ').replace(/_/g, ' ')
+          : 'unknown';
+        setScanNote(
+          `No confident detection. Best match was ${top} at ${(Number(data.confidence) || 0).toFixed(1)}%, `
+          + 'below the confidence threshold — the image may not be a supported crop leaf.',
+        );
+      }
+
+      setScanState('done');
+      setScanProgress(1);
+    } catch (error) {
+      // Image load / network / API failure: same visible failure state, markers
+      // cleared, no scan-complete event.
       setScanState('error');
-      setScanError('Scan failed. The image could not be loaded — please try again.');
+      if (error?.code === 'UNSUPPORTED_IMAGE' && error.message) {
+        // Decodable image the plant gate refused: show its reason verbatim
+        // instead of a generic scan failure.
+        setScanError(error.message);
+      } else {
+        setScanError(
+          error instanceof Error && error.message
+            ? `Scan failed: ${error.message}`
+            : 'Scan failed. The image could not be loaded — please try again.',
+        );
+      }
       if (onScanComplete) onScanComplete(null);
-    } finally {
-      // Phase 8: capture/inference finished — clear the flight capture flag
-      // on BOTH success and failure paths.
-      if (typeof onScanningStateChange === 'function') onScanningStateChange(false);
     }
   }, []);
 
@@ -188,8 +257,10 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
     setScanState('idle');
     setScanProgress(0);
     setDetections([]);
-    setScanMeta(null);
     setScanError(null);
+    setScanNote(null);
+    setScanData(null);
+    setScanSaved(null);
     detectionsRef.current = [];
     const img = new Image();
     img.onload = () => {
@@ -207,17 +278,12 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
 
   const handleFile = (file) => {
     if (!file.type.startsWith('image/')) {
-      // Phase 8: understandable feedback instead of a silent no-op when a
-      // non-image is dropped/pasted/selected. Not a scan failure, so the
-      // scan state stays 'idle' (no "Scan Failed" header is shown).
+      // Not a scan failure: the state stays 'idle', so no header is shown.
       setScanError('Unsupported file — please choose an image (JPG, PNG, or WebP).');
       return;
     }
     const reader = new FileReader();
-    reader.onload = e => {
-      const src = e.target?.result;
-      loadImage(src);
-    };
+    reader.onload = e => loadImage(e.target?.result);
     reader.readAsDataURL(file);
   };
 
@@ -239,7 +305,11 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
   }, [handlePaste]);
 
   const diseased = detections.filter(d => d.severity !== 'healthy');
-  const avgConf = detections.length ? detections.reduce((s, d) => s + d.confidence, 0) / detections.length : 0;
+  const headlineColor = !scanData
+    ? '#39ff14'
+    : scanData.detected === false
+      ? '#ffaa20'
+      : scanData.is_healthy ? '#39ff14' : '#ff9020';
 
   return (
     <section className="py-16 px-6 max-w-7xl mx-auto" id="image-scan">
@@ -260,9 +330,7 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* Left: upload + controls */}
         <div className="lg:col-span-2 flex flex-col gap-4">
-          {/* Drop zone */}
           <div
             className="agri-card relative flex flex-col items-center justify-center p-8 cursor-pointer transition-all duration-200"
             style={{
@@ -287,7 +355,6 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} />
           </div>
 
-          {/* Camera capture button */}
           <button
             className="agri-card w-full py-3 flex items-center justify-center gap-3 transition-all duration-200"
             style={{ border: '1px solid #1c3a1c', cursor: 'pointer' }}
@@ -306,7 +373,6 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
             <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} />
           </button>
 
-          {/* Scan button */}
           <button
             disabled={!imageSrc || scanState === 'scanning'}
             onClick={() => imageSrc && runScan(imageSrc)}
@@ -323,24 +389,19 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
             {scanState === 'scanning' ? '⏳  SCANNING...' : scanState === 'done' ? '🔁  RESCAN' : '▶  RUN YOLOV8 SCAN'}
           </button>
 
-          {/* Sample images */}
           <div>
             <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b', letterSpacing: '0.1em', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>
               Try a sample image
             </span>
             <div className="grid grid-cols-3 gap-2">
-              {[
-                { url: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=400&h=300&fit=crop&auto=format', label: 'Wheat field' },
-                { url: 'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&h=300&fit=crop&auto=format', label: 'Corn rows' },
-                { url: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&h=300&fit=crop&auto=format', label: 'Aerial crop' },
-              ].map(s => (
+              {SAMPLES.map(s => (
                 <button
                   key={s.url}
                   onClick={() => loadImage(s.url)}
                   className="relative overflow-hidden rounded group"
                   style={{ aspectRatio: '4/3', border: `1px solid ${imageSrc === s.url ? '#39ff14' : '#1c3a1c'}` }}
                 >
-                  <img src={s.url} alt={s.label} className="w-full h-full object-cover" crossOrigin="anonymous" />
+                  <img src={s.url} alt={s.label} className="w-full h-full object-cover" crossOrigin="anonymous" loading="lazy" decoding="async" />
                   <div
                     className="absolute inset-0 flex items-end p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
                     style={{ background: 'linear-gradient(transparent, rgba(6,13,6,0.85))' }}
@@ -352,87 +413,164 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
             </div>
           </div>
 
-          {/* Scan results summary */}
           {scanError && (
             <div className="agri-card p-4" style={{ border: '1px solid rgba(255,48,48,0.4)' }}>
               {scanState === 'error' && (
                 <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#ff3030', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                  Scan Failed
+                  {scanError.startsWith('Unsupported image') ? 'Unsupported Image' : 'Scan Failed'}
                 </span>
               )}
               <p className="text-sm mt-2" style={{ color: '#ff9020' }}>{scanError}</p>
             </div>
           )}
 
-          {scanState === 'done' && (
+          {scanState === 'done' && scanData && (
             <div className="agri-card p-4 flex flex-col gap-3" style={{ border: '1px solid rgba(57,255,20,0.2)' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                Scan Report
-              </span>
+              <div className="flex items-start justify-between gap-2">
+                <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  Scan Report
+                </span>
+                <span
+                  className="px-2 py-0.5 rounded"
+                  style={{
+                    fontFamily: 'monospace', fontSize: '9px', letterSpacing: '0.08em', textTransform: 'uppercase',
+                    color: scanData.supported === true ? '#39ff14' : '#ff9020',
+                    background: scanData.supported === true ? 'rgba(57,255,20,0.08)' : 'rgba(255,144,32,0.08)',
+                    border: `1px solid ${scanData.supported === true ? 'rgba(57,255,20,0.3)' : 'rgba(255,144,32,0.35)'}`,
+                  }}
+                  title={scanData.plant_score != null ? `Plant-domain score ${scanData.plant_score}` : undefined}
+                >
+                  {scanData.supported === true ? 'Leaf validated' : 'Not validated'}
+                </span>
+              </div>
+
+              <div>
+                <div style={MONO_LABEL}>Crop</div>
+                <div className="font-display font-700" style={{ fontSize: '22px', color: '#e8f5e8', lineHeight: 1.15 }}>
+                  {scanData.crop || '—'}
+                </div>
+                <div
+                  className="font-display font-600 mt-0.5"
+                  style={{ fontSize: '15px', color: headlineColor }}
+                >
+                  {scanData.detected === false
+                    ? 'No confident detection'
+                    : scanData.is_healthy
+                      ? 'Healthy — no disease class matched'
+                      : (scanData.disease || '—')}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  <span
+                    className="px-2 py-0.5 rounded"
+                    style={{ background: '#122012', border: '1px solid #1c3a1c', fontFamily: 'monospace', fontSize: '9px', color: '#a8d5a8', letterSpacing: '0.06em', textTransform: 'uppercase' }}
+                  >
+                    {scanData.category?.label || 'Unclassified'}
+                  </span>
+                  <span
+                    className="px-2 py-0.5 rounded"
+                    style={{ background: '#0d1a0d', border: '1px solid #1c3a1c', fontFamily: 'monospace', fontSize: '9px', color: '#6b9b6b' }}
+                    title={scanData.class_name}
+                  >
+                    {prettyClass(scanData.class_name)}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-baseline justify-between">
+                  <span style={MONO_LABEL}>Confidence</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 700, color: '#e8f5e8' }}>
+                    {Number(scanData.confidence || 0).toFixed(1)}%
+                  </span>
+                </div>
+                <div className="mt-1 rounded overflow-hidden" style={{ height: '6px', background: '#122012' }}>
+                  <div
+                    style={{
+                      height: '6px',
+                      width: `${Math.min(100, Math.max(0, Number(scanData.confidence) || 0))}%`,
+                      background: headlineColor,
+                    }}
+                  />
+                </div>
+                {scanData.confidence_threshold != null && (
+                  <div className="mt-1" style={{ fontFamily: 'monospace', fontSize: '9px', color: '#6b9b6b' }}>
+                    A class is reported only at or above {Number(scanData.confidence_threshold).toFixed(0)}%
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { l: 'Detections', v: String(detections.length) },
-                  { l: 'Diseased', v: String(diseased.length) },
-                  { l: 'Avg. Confidence', v: `${avgConf.toFixed(1)}%` },
-                  { l: 'Model', v: 'YOLOv8n' },
-                  // Phase 6: real fields from the prediction response, shown
-                  // only when the serving endpoint actually provides them.
-                  ...(scanMeta?.inferenceTimeMs != null
-                    ? [{ l: 'Inference', v: `${scanMeta.inferenceTimeMs.toFixed(0)} ms` }]
-                    : []),
-                  ...(scanMeta?.predictionId
-                    ? [{ l: 'Prediction ID', v: scanMeta.predictionId.length > 13 ? `${scanMeta.predictionId.slice(0, 10)}…` : scanMeta.predictionId }]
-                    : []),
+                  { l: 'Model', v: scanData.model_name || '—', t: scanData.model_file },
+                  { l: 'Inference', v: scanData.inference_time_ms != null ? `${Number(scanData.inference_time_ms).toFixed(0)} ms` : '—', t: 'Model forward pass (excludes upload and preprocessing)' },
+                  { l: 'Class index', v: scanData.class_index != null ? String(scanData.class_index) : '—' },
+                  { l: 'Validation', v: scanData.supported === true ? 'Passed' : 'Failed' },
+                  {
+                    l: 'Prediction ID',
+                    v: scanSaved?.predictionId
+                      ? (scanSaved.predictionId.length > 12 ? `${scanSaved.predictionId.slice(0, 8)}…` : scanSaved.predictionId)
+                      : 'None',
+                    t: scanSaved?.predictionId || undefined,
+                  },
+                  { l: 'Database', v: scanSaved?.savedToDb ? 'Saved' : 'Not saved' },
                 ].map(s => (
-                  <div key={s.l} className="rounded p-2" style={{ background: '#122012', border: '1px solid #1c3a1c' }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#6b9b6b', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{s.l}</div>
-                    <div className="font-display font-700 text-base mt-0.5" style={{ color: '#e8f5e8' }}>{s.v}</div>
+                  <div key={s.l} className="rounded p-2" style={{ background: '#122012', border: '1px solid #1c3a1c' }} title={s.t}>
+                    <div style={MONO_LABEL}>{s.l}</div>
+                    <div className="font-display font-700 text-sm mt-0.5" style={{ color: '#e8f5e8' }}>{s.v}</div>
                   </div>
                 ))}
               </div>
-              <div className="flex flex-col gap-1.5 mt-1">
-                {detections.map(d => {
-                  const focusable = typeof onDetectionSelect === 'function';
-                  const isSelected = selectedDetectionId === d.id;
-                  const rowStyle = {
-                    ...(isSelected
-                      ? { background: '#122012', border: '1px solid rgba(57,255,20,0.35)', borderRadius: '4px', padding: '2px 4px' }
-                      : {}),
-                  };
-                  const content = (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-sm" style={{ background: SEV_COLOR[d.severity] + '55', border: `1px solid ${SEV_COLOR[d.severity]}` }} />
-                        <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#e8f5e8' }}>{d.label}</span>
-                      </div>
-                      <span style={{ fontFamily: 'monospace', fontSize: '10px', color: SEV_COLOR[d.severity], fontWeight: 600 }}>
-                        {d.confidence.toFixed(1)}%
-                      </span>
-                    </>
-                  );
-                  return focusable ? (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => onDetectionSelect(d.id)}
-                      className="flex items-center justify-between w-full text-left transition-all duration-150"
-                      style={{ cursor: 'pointer', ...rowStyle }}
-                      title="Highlight in 3D view"
-                    >
-                      {content}
-                    </button>
-                  ) : (
-                    <div key={d.id} className="flex items-center justify-between" style={rowStyle}>
-                      {content}
-                    </div>
-                  );
-                })}
-              </div>
+
+              {Array.isArray(scanData.top_k) && scanData.top_k.length > 0 && (
+                <div>
+                  <div style={MONO_LABEL}>Top 3 predictions</div>
+                  <div className="flex flex-col gap-1.5 mt-1.5">
+                    {scanData.top_k.slice(0, 3).map((p, i) => {
+                      const score = Number(p.confidence) || 0;
+                      const isHealthy = /healthy/i.test(String(p.class_name || ''));
+                      const color = isHealthy ? SEV_COLOR.healthy : (i === 0 ? SEV_COLOR.high : '#6b9b6b');
+                      const clickable = i === 0 && typeof onDetectionSelect === 'function';
+                      const row = (
+                        <>
+                          <div className="flex items-center justify-between gap-2">
+                            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: i === 0 ? '#e8f5e8' : '#95b895' }}>
+                              {prettyClass(p.class_name)}
+                            </span>
+                            <span style={{ fontFamily: 'monospace', fontSize: '10px', fontWeight: 600, color }}>
+                              {score.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="mt-1 rounded overflow-hidden" style={{ height: '3px', background: '#122012' }}>
+                            <div style={{ height: '3px', width: `${Math.min(100, Math.max(0, score))}%`, background: color, opacity: i === 0 ? 1 : 0.5 }} />
+                          </div>
+                        </>
+                      );
+                      return clickable ? (
+                        <button
+                          key={p.class_name || i}
+                          type="button"
+                          onClick={() => onDetectionSelect('ai-0')}
+                          className="w-full text-left transition-all duration-150"
+                          style={{ cursor: 'pointer' }}
+                          title="Highlight in 3D view"
+                        >
+                          {row}
+                        </button>
+                      ) : (
+                        <div key={p.class_name || i}>{row}</div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {scanNote && (
+                <p className="text-sm" style={{ color: '#ffaa20', lineHeight: 1.5 }}>{scanNote}</p>
+              )}
             </div>
           )}
         </div>
 
-        {/* Right: image canvas */}
         <div className="lg:col-span-3">
           <div
             className="agri-card relative overflow-hidden"
@@ -493,7 +631,7 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
             {scanState !== 'idle' && (
               <div className="absolute top-3 left-3">
                 <div className="flex items-center gap-2 px-2.5 py-1 rounded" style={{ background: 'rgba(6,13,6,0.85)', border: '1px solid rgba(57,255,20,0.3)' }}>
-                  <span className={`w-2 h-2 rounded-full ${scanState === 'scanning' ? 'animate-blink' : ''}`} style={{ background: scanState === 'scanning' ? '#39ff14' : '#39ff14' }} />
+                  <span className={`w-2 h-2 rounded-full ${scanState === 'scanning' ? 'animate-blink' : ''}`} style={{ background: '#39ff14' }} />
                   <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#39ff14', letterSpacing: '0.1em' }}>
                     {scanState === 'scanning' ? `SCANNING ${Math.round(scanProgress * 100)}%` : `${detections.length} DETECTIONS`}
                   </span>
@@ -528,6 +666,87 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
           )}
         </div>
       </div>
+
+      {/* Static agronomic reference for the predicted class. */}
+      {scanState === 'done' && scanData?.disease_info && (
+        <div className="mt-5 agri-card p-5" style={{ border: '1px solid #1c3a1c' }}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-px" style={{ background: '#39ff14' }} />
+              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                Disease Reference
+              </span>
+            </div>
+            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b' }}>
+              {scanData.category?.label || 'Unclassified'} · {prettyClass(scanData.class_name)}
+            </span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-3">
+              <div style={MONO_LABEL}>Overview</div>
+              <p className="mt-1 text-sm" style={{ color: '#cfe8cf', lineHeight: 1.65 }}>
+                {scanData.disease_info.overview}
+              </p>
+              {scanData.disease_info.agent && (
+                <p className="mt-2" style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b' }}>
+                  Causal agent: {scanData.disease_info.agent}
+                </p>
+              )}
+            </div>
+
+            {Array.isArray(scanData.disease_info.symptoms) && scanData.disease_info.symptoms.length > 0 && (
+              <div>
+                <div style={MONO_LABEL}>Common visible symptoms</div>
+                <ul className="mt-2 flex flex-col gap-2">
+                  {scanData.disease_info.symptoms.map(s => (
+                    <li key={s} className="flex gap-2 text-sm" style={{ color: '#cfe8cf', lineHeight: 1.55 }}>
+                      <span style={{ color: '#39ff14', lineHeight: 1.4 }}>▸</span>
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {Array.isArray(scanData.disease_info.management) && scanData.disease_info.management.length > 0 && (
+              <div className="lg:col-span-2">
+                <div style={MONO_LABEL}>Prevention &amp; management (general)</div>
+                <ul className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-2">
+                  {scanData.disease_info.management.map(s => (
+                    <li key={s} className="flex gap-2 text-sm" style={{ color: '#cfe8cf', lineHeight: 1.55 }}>
+                      <span style={{ color: '#39ff14', lineHeight: 1.4 }}>▸</span>
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 rounded p-3" style={{ background: '#0d1a0d', border: '1px solid rgba(250,204,21,0.25)' }}>
+            <div style={{ ...MONO_LABEL, color: '#facc15' }}>General guidance — not a diagnosis of this image</div>
+            <p className="mt-1 text-sm" style={{ color: '#c9d9c9', lineHeight: 1.6 }}>
+              {scanData.disease_info.guidance_note}
+            </p>
+            {Array.isArray(scanData.disease_info.sources) && scanData.disease_info.sources.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+                {scanData.disease_info.sources.map(s => (
+                  <a
+                    key={s.url}
+                    href={s.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    style={{ fontFamily: 'monospace', fontSize: '10px', color: '#39ff14', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+                  >
+                    {s.name}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -1,20 +1,15 @@
-// src/context/AuthContext.jsx
-// Minimal authentication/session layer (Phase 5) built on the EXISTING
-// FastAPI JWT mechanism (POST /api/v1/auth/login, /auth/register, /auth/me).
-//
-// - Token lives in sessionStorage via api.js (setAuthToken/clearAuthToken);
-//   never hardcoded, cleared on logout, restored per tab session.
-// - On mount, an existing token is validated against /auth/me (restores the
-//   session or clears an expired one).
-// - Any 401 from history/detail calls marks the session expired → logged out.
+// Session layer over the FastAPI JWT endpoints (login/register/me).
+// The token lives in sessionStorage via api.js and is revalidated on mount;
+// a failed revalidation logs the session out.
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import {
   setAuthToken,
   clearAuthToken,
   fetchMe,
   getPredictions,
-  loginUser as loginUserSafe,
-  registerUser as registerUserSafe,
+  hasAuthToken,
+  loginUser as loginRequest,
+  registerUser as registerRequest,
 } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -29,19 +24,21 @@ export function AuthProvider({ children }) {
     let cancelled = false;
 
     const restore = async () => {
-      try {
-        const me = await fetchMe();
-        if (cancelled) return;
-        if (me && me.data) {
-          setUser(me.data);
-          setStatus('loggedIn');
-          return;
-        }
-      } catch {
-        // fall through to logged-out
+      // No stored token: skip the /auth/me round trip on anonymous page loads.
+      if (!hasAuthToken()) {
+        setStatus('loggedOut');
+        return;
+      }
+
+      const me = await fetchMe();
+      if (cancelled) return;
+      if (me && me.data) {
+        setUser(me.data);
+        setStatus('loggedIn');
+        return;
       }
       clearAuthToken();
-      if (!cancelled) setStatus('loggedOut');
+      setStatus('loggedOut');
     };
 
     restore();
@@ -51,12 +48,13 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    const tokens = await loginUserSafe({ email, password });
+    const tokens = await loginRequest({ email, password });
     setAuthToken(tokens.access_token);
 
     const me = await fetchMe();
     if (!me || !me.data) {
-      // Token issued but profile unavailable — treat as authed with minimal info.
+      // Token issued but the profile call failed: keep the session with what
+      // we know rather than bouncing the user back to the login form.
       setUser({ email });
       setStatus('loggedIn');
       return;
@@ -66,7 +64,7 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (payload) => {
-    await registerUserSafe(payload);
+    await registerRequest(payload);
   };
 
   const logout = () => {
@@ -75,8 +73,8 @@ export function AuthProvider({ children }) {
     setStatus('loggedOut');
   };
 
-  // Session-expiry signal: a 401 on any authenticated call means the JWT is
-  // gone/expired → drop the local session.
+  // Poll a cheap authenticated call; a null result plus a failed /auth/me
+  // means the token is gone or expired, so drop the local session.
   useEffect(() => {
     if (status !== 'loggedIn') return undefined;
 
@@ -84,7 +82,7 @@ export function AuthProvider({ children }) {
     const check = async () => {
       const result = await getPredictions({ page: 1, pageSize: 1 });
       if (!cancelled && result === null) {
-        // Network/401 — confirm with /auth/me before logging out.
+        // Network/401 — confirm before logging out.
         const me = await fetchMe();
         if (!cancelled && !me) {
           clearAuthToken();
