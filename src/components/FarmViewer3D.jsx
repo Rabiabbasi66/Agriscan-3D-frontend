@@ -13,7 +13,7 @@ const formatPosition = (p) => `x ${p.x.toFixed(1)} · z ${p.z.toFixed(1)}`
  * `detections` (normalised AI scan results) become 3D markers; without them the
  * demo disease zones remain as the fallback visualisation.
  */
-export default function FarmViewer3D({ detections = null, selectedDetectionId: selectedDetectionIdProp = null, onSelectionChange = null }) {
+export default function FarmViewer3D({ detections = null, selectedDetectionId: selectedDetectionIdProp = null, onSelectionChange = null, scrollProgress = 0 }) {
   const mountRef = useRef(null)
   const controllerRef = useRef(null)
   const [webgpu, setWebgpu] = useState(null)
@@ -22,6 +22,8 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
   const [selectedMeta, setSelectedMeta] = useState(null)
   const [selectedDetectionId, setSelectedDetectionId] = useState(null)
   const [mission, setMission] = useState(null)
+  const [cameraMode, setCameraMode] = useState('overview')
+  const [autoRotate, setAutoRotate] = useState(false)
 
   // Computed once per detections change: the HUD reads it in several places and
   // re-renders on every mission tick.
@@ -102,6 +104,10 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
     controllerRef.current?.setDroneSpeed(droneSpeed)
   }, [droneSpeed])
 
+  useEffect(() => {
+    controllerRef.current?.setScrollProgress(scrollProgress)
+  }, [scrollProgress])
+
   // HUD-only mission sampling at 4 Hz, never a scene rebuild. ALT renders to
   // one decimal place, so a tick that would not change that text (paused, or a
   // sub-0.05 m change) returns the previous state and React skips the render.
@@ -148,55 +154,116 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
         <div key={i} className={`absolute ${pos} w-8 h-8 ${brd} pointer-events-none`} style={{ borderColor: '#39ff14', opacity: 0.6 }} />
       ))}
 
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
-        <div className="agri-card px-3 py-1.5 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full animate-blink" style={{ background: scanning ? '#39ff14' : '#666' }} />
-          <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.1em' }}>
+      {/* Top Status Bar: Responsive Flex */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 md:gap-3 flex-wrap justify-center px-2 pointer-events-none z-10">
+        <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 flex items-center gap-2 pointer-events-auto">
+          <span className="w-2 h-2 rounded-full animate-blink shrink-0" style={{ background: scanning ? 'var(--primary)' : '#666' }} />
+          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--primary)', letterSpacing: '0.08em' }}>
             {scanning ? 'SCANNING ACTIVE' : 'PAUSED'}
           </span>
         </div>
-        <div className="agri-card px-3 py-1.5">
-          <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#6b9b6b', letterSpacing: '0.08em' }}>
-            ALT: <span style={{ color: '#e8f5e8' }}>{mission ? `${mission.altitude.toFixed(1)}m` : '10.2m'}</span>
+        <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 pointer-events-auto">
+          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+            ALT: <span style={{ color: 'var(--foreground)' }}>{mission ? `${mission.altitude.toFixed(1)}m` : '10.2m'}</span>
           </span>
         </div>
         {diseaseCount > 0 && (
-          <div className="agri-card px-3 py-1.5">
-            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.08em' }}>
+          <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden sm:flex items-center pointer-events-auto">
+            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--primary)', letterSpacing: '0.06em' }}>
               {diseaseCount} DISEASE MAPPED
             </span>
           </div>
         )}
       </div>
 
-      <div className="absolute top-4 right-4">
-        <div className="agri-card px-2.5 py-1 flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ background: webgpu ? '#39ff14' : '#6b9b6b' }} />
-          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: webgpu ? '#39ff14' : '#6b9b6b', letterSpacing: '0.08em' }}>
-            {webgpu === null ? 'DETECTING...' : webgpu ? 'WEBGPU ON' : 'WEBGL MODE'}
+      {/* Top Right: WebGPU capability */}
+      <div className="absolute top-3 right-2 md:right-4 z-10">
+        <div className="glass-panel px-2 py-1 md:px-2.5 flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: webgpu ? 'var(--primary)' : 'var(--muted-foreground)' }} />
+          <span style={{ fontFamily: 'monospace', fontSize: '9px', color: webgpu ? 'var(--primary)' : 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+            {webgpu === null ? 'DETECTING...' : webgpu ? 'WEBGPU' : 'WEBGL'}
           </span>
         </div>
       </div>
 
-      <div className="absolute bottom-4 left-4 flex flex-col gap-1.5">
+      {/* 3D Camera & View Controls: Responsive Glass Toolbar */}
+      <div className="absolute top-12 right-2 md:top-14 md:right-4 flex items-center gap-1.5 z-10">
+        <div className="glass-panel p-1 flex items-center gap-1 md:gap-1.5 shadow-lg">
+          <button
+            onClick={() => {
+              const next = cameraMode === 'overview' ? 'drone' : 'overview'
+              setCameraMode(next)
+              controllerRef.current?.setCameraMode(next)
+            }}
+            className="px-2 py-1 md:px-2.5 text-xs font-mono rounded transition-colors flex items-center gap-1"
+            style={{
+              background: cameraMode === 'drone' ? 'rgba(57,255,20,0.18)' : 'transparent',
+              color: cameraMode === 'drone' ? 'var(--primary)' : 'var(--muted-foreground)',
+              border: `1px solid ${cameraMode === 'drone' ? 'var(--primary)' : 'transparent'}`,
+            }}
+            title="Toggle between field overview and tracking the drone"
+          >
+            <span className="hidden sm:inline">{cameraMode === 'drone' ? '🎯 TRACK DRONE' : '🌐 FIELD VIEW'}</span>
+            <span className="sm:hidden">{cameraMode === 'drone' ? '🎯' : '🌐'}</span>
+          </button>
+          <button
+            onClick={() => {
+              controllerRef.current?.resetCamera()
+              setCameraMode('overview')
+            }}
+            className="px-1.5 py-1 md:px-2 text-xs font-mono rounded border border-transparent hover:border-green-500/30 transition-colors"
+            style={{ color: 'var(--muted-foreground)' }}
+            title="Reset camera angle to default overview"
+          >
+            <span className="hidden sm:inline">↺ RESET</span>
+            <span className="sm:hidden">↺</span>
+          </button>
+          <button
+            onClick={() => {
+              const active = controllerRef.current?.toggleAutoRotate()
+              setAutoRotate(!!active)
+            }}
+            className="px-1.5 py-1 md:px-2 text-xs font-mono rounded transition-colors"
+            style={{
+              color: autoRotate ? 'var(--primary)' : 'var(--muted-foreground)',
+              border: `1px solid ${autoRotate ? 'var(--primary)' : 'transparent'}`,
+            }}
+            title="Toggle subtle cinematic auto-rotation"
+          >
+            <span className="hidden sm:inline">↻ AUTO</span>
+            <span className="sm:hidden">↻</span>
+          </button>
+        </div>
+      </div>
+
+      {/* OrbitControls Hint: Hidden on mobile touchscreens */}
+      <div className="hidden sm:block absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-none opacity-60 z-10">
+        <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+          🖱️ Rotate: Drag · Zoom: Scroll · Pan: Right-Click
+        </span>
+      </div>
+
+      {/* Bottom Left Legend: Compact on mobile */}
+      <div className="absolute bottom-3 left-2 md:bottom-4 md:left-4 flex flex-col gap-1 z-10">
         {[{ color: '#ff2020', label: 'High Severity' }, { color: '#ff6020', label: 'Medium' }, { color: '#ffaa20', label: 'Low Severity' }].map(item => (
-          <div key={item.label} className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full border-2" style={{ borderColor: item.color, background: item.color + '33' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b', letterSpacing: '0.06em' }}>{item.label}</span>
+          <div key={item.label} className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full border" style={{ borderColor: item.color, background: item.color + '44' }} />
+            <span style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)', letterSpacing: '0.05em' }}>{item.label}</span>
           </div>
         ))}
       </div>
 
-      <div className="absolute bottom-4 right-4 flex items-center gap-3">
+      {/* Bottom Right Controls: Speed Slider & Pause */}
+      <div className="absolute bottom-3 right-2 md:bottom-4 md:right-4 flex items-center gap-2 z-10">
         <button
           onClick={() => setScanning(s => !s)}
-          className="agri-card px-3 py-1.5 text-xs font-semibold transition-all duration-200"
-          style={{ fontFamily: 'sans-serif', letterSpacing: '0.08em', color: scanning ? '#39ff14' : '#6b9b6b', fontSize: '12px' }}
+          className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 text-xs font-semibold transition-all duration-200"
+          style={{ fontFamily: 'sans-serif', letterSpacing: '0.06em', color: scanning ? 'var(--primary)' : 'var(--muted-foreground)' }}
         >
           {scanning ? '⏸ PAUSE' : '▶ RESUME'}
         </button>
-        <div className="agri-card px-3 py-1.5 flex items-center gap-2">
-          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b' }}>SPEED</span>
+        <div className="glass-panel px-2 py-1 md:px-2.5 md:py-1.5 flex items-center gap-1.5">
+          <span style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)' }}>SPD</span>
           <input
             type="range"
             min={0.001}
@@ -204,44 +271,45 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
             step={0.001}
             value={droneSpeed}
             onChange={e => setDroneSpeed(Number(e.target.value))}
-            className="w-20 accent-green-400"
-            style={{ accentColor: '#39ff14' }}
+            className="w-14 md:w-20 accent-green-400"
+            style={{ accentColor: 'var(--primary)' }}
           />
         </div>
       </div>
 
       {selectedMeta && (
-        <div className="absolute top-20 left-4 agri-card p-3 max-w-52" style={{ borderColor: 'rgba(255,32,32,0.4)' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full animate-blink" style={{ background: '#ff3030' }} />
+        <div className="absolute top-16 left-2 md:top-20 md:left-4 glass-panel p-2.5 md:p-3 max-w-48 md:max-w-56 z-10" style={{ borderColor: 'rgba(255,32,32,0.4)' }}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-2 h-2 rounded-full animate-blink shrink-0" style={{ background: '#ff3030' }} />
             <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#ff3030', letterSpacing: '0.08em' }}>
               DISEASE DETECTED
             </span>
           </div>
-          <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#e8f5e8', marginBottom: 2 }}>
+          <div style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--foreground)', marginBottom: 2 }}>
             {String(selectedMeta.label || 'Unknown').replace(/_/g, ' ')}
           </div>
-          <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b' }}>
-            CONF: <span style={{ color: '#39ff14' }}>{((selectedMeta.confidence || 0) * 100).toFixed(1)}%</span>
+          <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)' }}>
+            CONF: <span style={{ color: 'var(--primary)' }}>{((selectedMeta.confidence || 0) * 100).toFixed(1)}%</span>
           </div>
-          <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b' }}>
-            POS: <span style={{ color: '#e8f5e8' }}>{selectedMeta.position ? formatPosition(selectedMeta.position) : '—'}</span>
+          <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)' }}>
+            POS: <span style={{ color: 'var(--foreground)' }}>{selectedMeta.position ? formatPosition(selectedMeta.position) : '—'}</span>
           </div>
-          <div style={{ fontFamily: 'monospace', fontSize: '9px', color: '#6b9b6b', marginTop: 4, opacity: 0.8 }}>
+          <div style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)', marginTop: 4, opacity: 0.8 }}>
             virtual camera projection · not GPS
           </div>
         </div>
       )}
 
-      <div className="absolute top-4 left-4 agri-card p-3 max-w-44">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-2 h-2 rounded-full animate-blink" style={{ background: '#ff3030' }} />
-          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#ff3030', letterSpacing: '0.08em' }}>4 ZONES DETECTED</span>
+      {/* Top Left Disease Zones Indicator */}
+      <div className="absolute top-16 left-2 md:top-4 md:left-4 glass-panel p-2 md:p-2.5 max-w-36 md:max-w-44 z-10">
+        <div className="flex items-center gap-1.5 mb-1">
+          <div className="w-1.5 h-1.5 rounded-full animate-blink shrink-0" style={{ background: '#ff3030' }} />
+          <span style={{ fontFamily: 'monospace', fontSize: '9px', color: '#ff3030', letterSpacing: '0.06em' }}>4 ZONES DETECTED</span>
         </div>
         {DISEASE_ZONES.slice(0, 2).map(z => (
-          <div key={z.label} className="flex items-center justify-between mt-1">
-            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b' }}>{z.label}</span>
-            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: z.severity === 'high' ? '#ff2020' : '#ff6020', letterSpacing: '0.05em' }}>{z.severity.toUpperCase()}</span>
+          <div key={z.label} className="flex items-center justify-between mt-0.5">
+            <span style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)' }}>{z.label}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: '9px', color: z.severity === 'high' ? '#ff2020' : '#ff6020', letterSpacing: '0.04em' }}>{z.severity.toUpperCase()}</span>
           </div>
         ))}
       </div>

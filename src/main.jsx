@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
 import { preloadModels } from './three/modelLoader'
+import { ThemeProvider } from './context/ThemeContext'
 
 // Start the GLB downloads during module init so they overlap React's first
 // render; modelLoader de-duplicates in-flight requests, so the scene reuses
@@ -11,6 +12,8 @@ preloadModels(['drone', 'corn', 'leaf'])
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
   </React.StrictMode>,
 )

@@ -16,83 +16,115 @@ const LEAF_HEIGHT = 0.9
 /**
  * Scene, atmosphere and lighting.
  *
- * The rig is a hemisphere fill, a shadow-casting key light and the green point
- * light that rides with the drone. The shadow frustum is deliberately tight
- * (68 world units) around the crop field and the patrol, so a 2048² map stays
- * crisp instead of being spread across the whole 120-unit plane.
+ * Professional 3-point lighting + aerial inspection rig:
+ * - Hemisphere fill (daylight sky tone + ground foliage bounce)
+ * - Key light (warm golden-white sun with soft PCF shadow maps)
+ * - Cool rim/accent light (opposing angle, defines metallic edges and carbon-fiber silhouette)
+ * - Downward sensor spotlight (cone of inspection light projecting onto crops)
+ * - Local drone fill lights
  *
- * @returns {{ scene: THREE.Scene, droneLight: THREE.PointLight, droneFillLight: THREE.PointLight, sun: THREE.DirectionalLight }}
+ * @returns {{ scene: THREE.Scene, droneLight: THREE.PointLight, droneFillLight: THREE.PointLight, droneSpotLight: THREE.SpotLight, sun: THREE.DirectionalLight, rimLight: THREE.DirectionalLight, hemiLight: THREE.HemisphereLight, ambientLight: THREE.AmbientLight }}
  */
 export function createScene() {
   const scene = new THREE.Scene()
-  // Kept low enough that the drone and nearby crops stay clear at the orbit
-  // camera's ~57-unit distance; higher values turned the drone into a smudge.
-  scene.fog = new THREE.FogExp2(0x060d06, 0.0085)
-  scene.background = new THREE.Color(0x060d06)
+  scene.fog = new THREE.FogExp2(0x0a140d, 0.0075)
+  scene.background = new THREE.Color(0x080f0a)
 
-  scene.add(new THREE.HemisphereLight(0x86d97a, 0x0b1c0b, 0.85))
-  scene.add(new THREE.AmbientLight(0x1d3a1d, 0.45))
+  // 1. Natural daylight sky + deep foliage ground bounce
+  const hemiLight = new THREE.HemisphereLight(0xcde3f7, 0x182a16, 0.75)
+  scene.add(hemiLight)
 
-  // The drone and crop rows drop shadows on the ground, which is what gives
-  // the scene depth and shows where the drone is flying.
-  const sun = new THREE.DirectionalLight(0xd6ffc4, 2.4)
-  sun.position.set(28, 46, 18)
+  // 2. Subtle neutral ambient light to lift dark crevices without washing out contrast
+  const ambientLight = new THREE.AmbientLight(0x223326, 0.35)
+  scene.add(ambientLight)
+
+  // 3. Key Light (Sun): Warm golden-white directional light casting soft, realistic shadows
+  const sun = new THREE.DirectionalLight(0xfff6e5, 2.8)
+  sun.position.set(32, 48, 20)
   sun.castShadow = true
   sun.shadow.mapSize.set(2048, 2048)
-  sun.shadow.camera.near = 20
-  sun.shadow.camera.far = 130
-  sun.shadow.camera.left = -34
-  sun.shadow.camera.right = 34
-  sun.shadow.camera.top = 34
-  sun.shadow.camera.bottom = -34
-  sun.shadow.bias = -0.0004
-  sun.shadow.normalBias = 0.02
+  sun.shadow.camera.near = 15
+  sun.shadow.camera.far = 140
+  sun.shadow.camera.left = -40
+  sun.shadow.camera.right = 40
+  sun.shadow.camera.top = 40
+  sun.shadow.camera.bottom = -40
+  sun.shadow.bias = -0.00015
+  sun.shadow.normalBias = 0.008
+  sun.shadow.radius = 1.6
   scene.add(sun)
   scene.add(sun.target)
 
-  const droneLight = new THREE.PointLight(0x39ff14, 2.2, 34, 2)
+  // 4. Rim / Silhouette Light: Cool cyan/sky tint from opposing angle to give the drone 3D pop
+  const rimLight = new THREE.DirectionalLight(0x7dd3fc, 1.2)
+  rimLight.position.set(-28, 24, -24)
+  scene.add(rimLight)
+
+  // 5. Downward Inspection Scanner (SpotLight): Active multispectral sensor cone
+  const droneSpotLight = new THREE.SpotLight(0x39ff14, 4.0, 35, Math.PI / 5, 0.5, 2)
+  droneSpotLight.position.set(0, 10, 0)
+  scene.add(droneSpotLight)
+  scene.add(droneSpotLight.target)
+
+  // 6. Drone airframe fill: subtle top/side illumination
+  const droneFillLight = new THREE.PointLight(0xdcfce7, 1.8, 14, 2)
+  droneFillLight.position.set(0, 12, 0)
+  scene.add(droneFillLight)
+
+  // 7. Green beacon / sensor point light
+  const droneLight = new THREE.PointLight(0x39ff14, 1.6, 20, 2)
   droneLight.position.set(0, 8, 0)
   scene.add(droneLight)
 
-  // Short-range cool fill parked just above the drone: range 10 with
-  // inverse-square decay lifts the airframe's edges without washing out the
-  // field below.
-  const droneFillLight = new THREE.PointLight(0xd6f2ff, 18, 10, 2)
-  droneFillLight.position.set(0, 14, 0)
-  scene.add(droneFillLight)
-
-  return { scene, droneLight, droneFillLight, sun }
+  return { scene, droneLight, droneFillLight, droneSpotLight, sun, rimLight, hemiLight, ambientLight }
 }
 
 /**
- * Reflection environment for the drone's PBR materials. The GLB materials are
- * metallic, and metal with nothing to reflect renders near-black, so a small
- * procedural equirect (sky gradient + one sun blob) is pre-filtered through
- * PMREM and used as `scene.environment` — no extra asset to download.
+ * Reflection environment for the drone's PBR materials.
+ * Generates an equirectangular sky map with a bright sun disc and cool horizon
+ * gradients, giving carbon fiber, polished alloys, and glass crisp realistic reflections.
  *
  * @param {THREE.WebGLRenderer} renderer
  * @returns {THREE.Texture} pre-filtered environment map (dispose on teardown)
  */
 export function createEnvironment(renderer) {
   const canvas = document.createElement('canvas')
-  canvas.width = 256
-  canvas.height = 128
+  canvas.width = 512
+  canvas.height = 256
   const ctx = canvas.getContext('2d')
 
+  // Smooth atmospheric sky dome gradient
   const sky = ctx.createLinearGradient(0, 0, 0, canvas.height)
-  sky.addColorStop(0, '#12240f')
-  sky.addColorStop(0.42, '#356b31')
-  sky.addColorStop(0.52, '#1a3a1c')
-  sky.addColorStop(1, '#050a05')
+  sky.addColorStop(0.0, '#0a1628')   // Deep aerospace twilight zenith
+  sky.addColorStop(0.35, '#1e385c')  // Mid sky cool tone
+  sky.addColorStop(0.48, '#38bdf8')  // Horizon luminous atmospheric glow
+  sky.addColorStop(0.50, '#93c5fd')  // Sharp horizon line
+  sky.addColorStop(0.52, '#1e2920')  // Ground terrain horizon
+  sky.addColorStop(0.70, '#102213')  // Agricultural field bounce
+  sky.addColorStop(1.0, '#050c06')   // Deep ground nadir
   ctx.fillStyle = sky
   ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-  // The only bright spot, so metallic surfaces get one clear highlight.
-  const sunGlow = ctx.createRadialGradient(184, 34, 2, 184, 34, 64)
-  sunGlow.addColorStop(0, 'rgba(236, 255, 219, 1)')
-  sunGlow.addColorStop(0.35, 'rgba(180, 235, 150, 0.55)')
-  sunGlow.addColorStop(1, 'rgba(180, 235, 150, 0)')
+  // Primary Sun reflection (bright, high-intensity HDR-style sun disk with corona)
+  const sunX = Math.round(canvas.width * 0.65)
+  const sunY = Math.round(canvas.height * 0.28)
+  const sunGlow = ctx.createRadialGradient(sunX, sunY, 1, sunX, sunY, 70)
+  sunGlow.addColorStop(0.0, '#ffffff')
+  sunGlow.addColorStop(0.15, 'rgba(255, 250, 230, 0.95)')
+  sunGlow.addColorStop(0.4, 'rgba(254, 215, 170, 0.45)')
+  sunGlow.addColorStop(0.75, 'rgba(56, 189, 248, 0.15)')
+  sunGlow.addColorStop(1.0, 'rgba(56, 189, 248, 0)')
   ctx.fillStyle = sunGlow
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  // Secondary soft sky highlight on the opposite side (studio fill bounce)
+  const fillX = Math.round(canvas.width * 0.2)
+  const fillY = Math.round(canvas.height * 0.35)
+  const fillGlow = ctx.createRadialGradient(fillX, fillY, 2, fillX, fillY, 60)
+  fillGlow.addColorStop(0.0, 'rgba(186, 230, 253, 0.4)')
+  fillGlow.addColorStop(0.5, 'rgba(125, 211, 252, 0.15)')
+  fillGlow.addColorStop(1.0, 'rgba(125, 211, 252, 0)')
+  ctx.fillStyle = fillGlow
   ctx.fillRect(0, 0, canvas.width, canvas.height)
 
   const equirect = new THREE.CanvasTexture(canvas)
@@ -198,6 +230,18 @@ export function createCrops() {
 
   loadModel('corn')
     .then((cornModel) => {
+      // Memory safety: if the scene or cropGroup was unmounted while loading, abort and dispose
+      if (!cropGroup.parent) {
+        cornModel.traverse((node) => {
+          if (node.geometry) node.geometry.dispose()
+          if (node.material) {
+            const mats = Array.isArray(node.material) ? node.material : [node.material]
+            mats.forEach((m) => m.dispose())
+          }
+        })
+        return
+      }
+
       const sources = collectMeshes(cornModel)
       if (sources.length === 0) return
 
@@ -298,6 +342,18 @@ export function createDiseaseZones() {
   // One shared leaf download for every zone.
   loadModel('leaf')
     .then((leafModel) => {
+      // Memory safety: if the scene or diseaseGroup was unmounted while loading, abort and dispose
+      if (!diseaseGroup.parent) {
+        leafModel.traverse((node) => {
+          if (node.geometry) node.geometry.dispose()
+          if (node.material) {
+            const mats = Array.isArray(node.material) ? node.material : [node.material]
+            mats.forEach((m) => m.dispose())
+          }
+        })
+        return
+      }
+
       const sources = collectMeshes(leafModel)
       if (sources.length === 0) return
 

@@ -1,75 +1,76 @@
-import React, { useState } from 'react';
-import Navbar from './components/Navbar';
-import FarmViewer3D from './components/FarmViewer3D';
-import StatsCards from './components/StatsCards';
-import ScanDashboard from './components/ScanDashboard';
-import ImageScanner from './components/ImageScanner';
-import PredictionHistory from './components/PredictionHistory';
-import FieldHealthMap from './components/FieldHealthMap';
-import TeamSection from './components/TeamSection';
-import FieldAnalytics from './components/FieldAnalytics';
-import { AuthProvider } from './context/AuthContext';
-import { normalizePrediction } from './services/api';
+import React, { useState, useEffect } from 'react'
+import Navbar from './components/Navbar'
+import FarmViewer3D from './components/FarmViewer3D'
+import StatsCards from './components/StatsCards'
+import ScanDashboard from './components/ScanDashboard'
+import ImageScanner from './components/ImageScanner'
+import PredictionHistory from './components/PredictionHistory'
+import FieldHealthMap from './components/FieldHealthMap'
+import TeamSection from './components/TeamSection'
+import FieldAnalytics from './components/FieldAnalytics'
+import LoadingScreen from './components/LoadingScreen'
+import { AuthProvider } from './context/AuthContext'
+import { normalizePrediction } from './services/api'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
-function HeroSection({ detections = null, selectedDetectionId = null, onDetectionSelect = null }) {
+function HeroSection({ detections = null, selectedDetectionId = null, onDetectionSelect = null, scrollProgress = 0 }) {
   return (
-    <div className="hero-wrapper">
+    <div className="hero-wrapper" id="overview">
       <div className="absolute inset-0 pt-16">
         <FarmViewer3D
           detections={detections}
           selectedDetectionId={selectedDetectionId}
           onSelectionChange={onDetectionSelect}
+          scrollProgress={scrollProgress}
         />
       </div>
 
-      <div className="relative z-10 flex flex-col justify-end h-full pb-16 px-4 md:px-8 pointer-events-none container-center">
+      <div className="relative z-10 flex flex-col justify-end h-full pb-14 md:pb-16 px-4 md:px-8 pointer-events-none container-center">
         <div className="max-w-3xl">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded" style={{ background: 'rgba(57,255,20,0.1)', border: '1px solid rgba(57,255,20,0.2)' }}>
-              <span className="w-2 h-2 rounded-full animate-blink" style={{ background: '#39ff14' }} />
-              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.1em' }}>
+          <div className="flex items-center gap-3 mb-3 md:mb-4">
+            <div className="glass-panel flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ border: '1px solid var(--border)' }}>
+              <span className="w-2 h-2 rounded-full animate-blink" style={{ background: 'var(--primary)' }} />
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--primary)', letterSpacing: '0.1em' }}>
                 AI-POWERED CROP MONITORING
               </span>
             </div>
           </div>
 
-          <h1 className="font-display font-700 leading-none mb-4" style={{ fontSize: 'clamp(44px, 8vw, 88px)', color: '#e8f5e8', letterSpacing: '-0.01em' }}>
+          <h1 className="font-display font-700 leading-none mb-3 md:mb-4" style={{ fontSize: 'clamp(38px, 7.5vw, 84px)', color: 'var(--foreground)', letterSpacing: '-0.01em' }}>
             AGRI
-            <span style={{ color: '#39ff14' }}>SCAN</span>
+            <span style={{ color: 'var(--primary)' }}>SCAN</span>
             {' '}
-            <span style={{ color: '#39ff14', textShadow: '0 0 30px rgba(57,255,20,0.5)' }}>3D</span>
+            <span style={{ color: 'var(--primary)', textShadow: '0 0 25px rgba(57,255,20,0.45)' }}>3D</span>
           </h1>
 
-          <p className="text-base max-w-xl mb-6" style={{ color: 'rgba(232,245,232,0.7)', lineHeight: '1.65', fontSize: '15px' }}>
-            Virtual drone flyover with YOLOv8 AI detection. Identify diseased crops in real time,
-            mapped to precise 3D coordinates — so farmers act fast, save yields, cut losses.
+          <p className="text-sm md:text-base max-w-xl mb-5 md:mb-6" style={{ color: 'var(--card-foreground)', lineHeight: '1.6', opacity: 0.9 }}>
+            Autonomous drone flyover with YOLOv8 real-time AI disease detection. Pinpoint crop pathologies mapped directly to 3D field coordinates.
           </p>
 
-          <div className="flex items-center gap-4 pointer-events-auto">
+          <div className="flex flex-wrap items-center gap-3 md:gap-4 pointer-events-auto">
             <button
-              className="px-6 py-3 rounded font-display font-700 tracking-widest text-sm transition-all duration-200"
-              style={{ background: '#39ff14', color: '#060d06', fontSize: '13px', letterSpacing: '0.1em' }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 30px rgba(57,255,20,0.4)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none' }}
+              className="px-5 py-2.5 md:px-6 md:py-3 rounded font-display font-700 tracking-wider text-xs md:text-sm transition-all duration-200 hover:scale-105 active:scale-95"
+              style={{ background: 'var(--primary)', color: 'var(--primary-foreground)', letterSpacing: '0.08em' }}
               onClick={() => document.getElementById('image-scanner')?.scrollIntoView({ behavior: 'smooth' })}
             >
-              START SCAN
+              START AI SCAN
             </button>
             <a
               href="#analytics"
-              className="px-6 py-3 rounded font-display font-700 tracking-widest text-sm transition-all duration-200"
-              style={{ border: '1px solid rgba(57,255,20,0.3)', color: '#39ff14', fontSize: '13px', letterSpacing: '0.1em' }}
+              className="glass-panel px-5 py-2.5 md:px-6 md:py-3 rounded font-display font-700 tracking-wider text-xs md:text-sm transition-all duration-200 hover:border-green-400"
+              style={{ color: 'var(--primary)', letterSpacing: '0.08em' }}
             >
-              VIEW REPORT
+              VIEW ANALYTICS
             </a>
           </div>
         </div>
       </div>
 
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2">
-        <div className="w-px h-10" style={{ background: 'linear-gradient(to bottom, transparent, rgba(57,255,20,0.4))' }} />
-        <span style={{ fontFamily: 'monospace', fontSize: '9px', color: 'rgba(57,255,20,0.5)', letterSpacing: '0.12em' }}>
-          SCROLL
+      <div className="hidden sm:flex absolute bottom-5 left-1/2 -translate-x-1/2 z-10 flex-col items-center gap-2 pointer-events-none opacity-60">
+        <div className="w-px h-8" style={{ background: 'linear-gradient(to bottom, transparent, var(--primary))' }} />
+        <span style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)', letterSpacing: '0.12em' }}>
+          SCROLL TO EXPLORE
         </span>
       </div>
     </div>
@@ -79,27 +80,27 @@ function HeroSection({ detections = null, selectedDetectionId = null, onDetectio
 function TechBanner() {
   const items = [
     { label: 'AI Engine', value: 'YOLOv8' },
-    { label: '3D Renderer', value: 'Three.js' },
-    { label: 'GPU Compute', value: 'WebGPU' },
-    { label: 'Backend', value: 'FastAPI' },
-    { label: 'Frontend', value: 'React 19' },
-    { label: 'Detection', value: 'Real-time' },
-    { label: 'Accuracy', value: '97.3%' },
+    { label: '3D Renderer', value: 'Three.js r160' },
+    { label: 'WebGL / WebGPU', value: 'Active' },
+    { label: 'Backend API', value: 'FastAPI' },
+    { label: 'Frontend', value: 'React 18' },
     { label: 'Latency', value: '< 340ms' },
+    { label: 'Detection Accuracy', value: '97.3%' },
+    { label: 'Telemetry', value: 'Nadir Pinhole' },
   ]
 
   return (
-    <div className="w-full overflow-hidden border-y border-[#1c3a1c] bg-[#122012] py-3">
-      <div className="flex items-center gap-10 animate-[scroll_20s_linear_infinite]" style={{ width: 'max-content' }}>
+    <div className="w-full overflow-hidden border-y py-3 transition-colors duration-300" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+      <div className="flex items-center gap-8 md:gap-10 animate-[scroll_22s_linear_infinite]" style={{ width: 'max-content' }}>
         {[...items, ...items].map((item, i) => (
-          <div key={i} className="flex items-center gap-6 shrink-0">
-            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          <div key={i} className="flex items-center gap-4 md:gap-6 shrink-0">
+            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
               {item.label}
             </span>
-            <span style={{ fontFamily: 'sans-serif', fontSize: '13px', color: '#39ff14', fontWeight: 700, letterSpacing: '0.06em' }}>
+            <span style={{ fontFamily: 'sans-serif', fontSize: '13px', color: 'var(--primary)', fontWeight: 700, letterSpacing: '0.05em' }}>
               {item.value}
             </span>
-            <span style={{ color: '#1c3a1c' }}>·</span>
+            <span style={{ color: 'var(--border)' }}>·</span>
           </div>
         ))}
       </div>
@@ -115,112 +116,180 @@ function TechBanner() {
 
 function Footer() {
   return (
-    <footer className="py-12 px-6 border-t border-[#1c3a1c]">
+    <footer className="py-12 px-6 border-t transition-colors duration-300" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
-          <div className="font-display text-xl font-700 tracking-wider mb-1" style={{ color: '#e8f5e8' }}>
-            AGRI<span style={{ color: '#39ff14' }}>SCAN</span> <span style={{ color: '#6b9b6b', fontSize: '14px' }}>3D</span>
+          <div className="font-display text-xl font-700 tracking-wider mb-1" style={{ color: 'var(--foreground)' }}>
+            AGRI<span style={{ color: 'var(--primary)' }}>SCAN</span> <span style={{ color: 'var(--muted-foreground)', fontSize: '14px' }}>3D</span>
           </div>
-          <p style={{ fontFamily: 'monospace', fontSize: '11px', color: '#6b9b6b', letterSpacing: '0.06em' }}>
-            AI-powered crop disease detection · YOLOv8 + Three.js + WebGPU
+          <p style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+            Final Year Project · Autonomous Aerial Crop Monitoring & YOLOv8 Health Mapping
           </p>
         </div>
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-8">
-          {['Overview', 'Field Map', 'Detections', 'Analytics', 'Team'].map((l) => (
-            <a 
-              key={l} 
-              href={`#${l.toLowerCase().replace(' ', '-')}`} 
-              style={{ fontFamily: 'monospace', fontSize: '11px', color: '#6b9b6b', letterSpacing: '0.06em', textTransform: 'uppercase' }}
+        <div className="flex flex-wrap items-center gap-4 md:gap-8">
+          {['Overview', 'Scanner', 'History', 'Analytics', 'Team'].map((l) => (
+            <a
+              key={l}
+              href={`#${l.toLowerCase().replace(' ', '-')}`}
+              style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.06em', textTransform: 'uppercase' }}
+              className="hover:text-green-500 transition-colors"
             >
               {l}
             </a>
           ))}
         </div>
-        <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b', letterSpacing: '0.06em' }}>
-          Frontend · 3D · Backend · AI
+        <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+          Three.js · WebGL · YOLOv8 · FastAPI
         </div>
       </div>
     </footer>
   )
 }
 
-
 export default function App() {
-  const [aiDetections, setAiDetections] = useState(null);
-  // Single source of truth for the scanner report list ↔ 3D scene highlight.
-  const [selectedDetectionId, setSelectedDetectionId] = useState(null);
+  const [loading, setLoading] = useState(true)
+  const [loadProgress, setLoadProgress] = useState(15)
+  const [aiDetections, setAiDetections] = useState(null)
+  const [selectedDetectionId, setSelectedDetectionId] = useState(null)
+  const [scrollProgress, setScrollProgress] = useState(0)
+  const sectionsRef = React.useRef(null)
+
+  // Initialize GSAP ScrollTrigger
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger)
+
+    // Scroll-reveal animations for all sections
+    if (sectionsRef.current) {
+      const sections = sectionsRef.current.querySelectorAll('.page-section')
+      sections.forEach((section, index) => {
+        gsap.fromTo(
+          section,
+          { opacity: 0, y: 60 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.8,
+            ease: 'power3.out',
+            scrollTrigger: {
+              trigger: section,
+              start: 'top 85%',
+              toggleActions: 'play none none reverse',
+            },
+            delay: index * 0.05,
+          }
+        )
+      })
+    }
+
+    return () => {
+      ScrollTrigger.getAll().forEach(trigger => trigger.kill())
+    }
+  }, [])
+
+  // Track scroll progress for hero section
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight
+      const progress = docHeight > 0 ? scrollTop / docHeight : 0
+      setScrollProgress(progress)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  useEffect(() => {
+    // Smooth progress simulation while GLB models and 3D scenes initialize
+    let current = 15
+    const interval = setInterval(() => {
+      current += Math.random() * 22 + 8
+      if (current >= 100) {
+        current = 100
+        setLoadProgress(100)
+        clearInterval(interval)
+        setTimeout(() => setLoading(false), 450)
+      } else {
+        setLoadProgress(Math.min(99, Math.round(current)))
+      }
+    }, 180)
+    return () => clearInterval(interval)
+  }, [])
 
   const handleScanComplete = (rawResult) => {
-    setAiDetections(rawResult ? normalizePrediction(rawResult) : null);
-    setSelectedDetectionId(null);
-    // Failed scans pass null and must not reach session analytics.
+    setAiDetections(rawResult ? normalizePrediction(rawResult) : null)
+    setSelectedDetectionId(null)
     if (rawResult) {
-      window.dispatchEvent(new CustomEvent('agriscan:scan-complete', { detail: rawResult }));
+      window.dispatchEvent(new CustomEvent('agriscan:scan-complete', { detail: rawResult }))
     }
-  };
+  }
 
   return (
     <AuthProvider>
-      <div style={{ background: '#060d06', minHeight: '100vh' }}>
+      <div style={{ background: 'var(--background)', minHeight: '100vh', transition: 'background-color 0.3s ease' }}>
+        <LoadingScreen visible={loading} progress={loadProgress} />
         <Navbar />
-      
-      <HeroSection
-        detections={aiDetections}
-        selectedDetectionId={selectedDetectionId}
-        onDetectionSelect={setSelectedDetectionId}
-      />
-      
-      <section className="page-section">
-        <div className="container-center">
-          <TechBanner />
-        </div>
-      </section>
 
-      <section className="page-section">
-        <div className="container-center">
-          <StatsCards />
-        </div>
-      </section>
+        <HeroSection
+          detections={aiDetections}
+          selectedDetectionId={selectedDetectionId}
+          onDetectionSelect={setSelectedDetectionId}
+          scrollProgress={scrollProgress}
+        />
 
-      <section className="page-section">
-        <div className="container-center">
-          <ScanDashboard />
-        </div>
-      </section>
+        {/* Scroll-reveal sections */}
+        <div ref={sectionsRef}>
+          <section className="page-section">
+            <div className="container-center">
+              <TechBanner />
+            </div>
+          </section>
 
-      <section id="image-scanner" className="page-section">
-        <div className="container-center">
-          <ImageScanner
-            onScanComplete={handleScanComplete}
-            onDetectionSelect={setSelectedDetectionId}
-            selectedDetectionId={selectedDetectionId}
-          />
-        </div>
-      </section>
+          <section className="page-section">
+            <div className="container-center">
+              <StatsCards />
+            </div>
+          </section>
 
-      <section id="prediction-history" className="page-section">
-        <div className="container-center">
-          <PredictionHistory />
-        </div>
-      </section>
+          <section className="page-section">
+            <div className="container-center">
+              <ScanDashboard />
+            </div>
+          </section>
 
-      <section id="field-analytics" className="page-section">
-        <div className="container-center">
-          <FieldAnalytics onDetectionSelect={setSelectedDetectionId} />
-        </div>
-      </section>
+          <section id="image-scanner" className="page-section">
+            <div className="container-center">
+              <ImageScanner
+                onScanComplete={handleScanComplete}
+                onDetectionSelect={setSelectedDetectionId}
+                selectedDetectionId={selectedDetectionId}
+              />
+            </div>
+          </section>
 
-      <section className="page-section">
-        <div className="container-center">
-          <FieldHealthMap />
-        </div>
-      </section>
+          <section id="prediction-history" className="page-section">
+            <div className="container-center">
+              <PredictionHistory />
+            </div>
+          </section>
 
-      <section className="page-section">
-        <div className="container-center">
-          <TeamSection />
+          <section id="analytics" className="page-section">
+            <div className="container-center">
+              <FieldAnalytics onDetectionSelect={setSelectedDetectionId} />
+            </div>
+          </section>
+
+          <section className="page-section">
+            <div className="container-center">
+              <FieldHealthMap />
+            </div>
+          </section>
+
+          <section id="team" className="page-section">
+            <div className="container-center">
+              <TeamSection />
+            </div>
+          </section>
         </div>
-      </section>
 
         <Footer />
       </div>

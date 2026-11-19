@@ -48,19 +48,19 @@ export default function AlertFeed() {
 
   return (
     <div className="agri-card h-full flex flex-col" id="detections">
-      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #1c3a1c' }}>
+      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center gap-2.5">
           <div className="w-2 h-2 rounded-full animate-blink" style={{ background: '#ff3030' }} />
-          <span className="font-display text-base font-600 tracking-wider" style={{ color: '#e8f5e8' }}>
+          <span className="font-display text-base font-600 tracking-wider" style={{ color: 'var(--foreground)' }}>
             DETECTION FEED
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b', letterSpacing: '0.08em' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.08em' }}>
             YOLOv8
           </span>
           <div className="px-2 py-0.5 rounded-sm" style={{ background: 'rgba(57,255,20,0.1)', border: '1px solid rgba(57,255,20,0.2)' }}>
-            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#39ff14', letterSpacing: '0.08em' }}>LIVE</span>
+            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--primary)', letterSpacing: '0.08em' }}>LIVE</span>
           </div>
         </div>
       </div>
@@ -74,8 +74,8 @@ export default function AlertFeed() {
               key={alert.id}
               className="rounded p-3 transition-all duration-500"
               style={{
-                background: isNew ? 'rgba(57,255,20,0.06)' : '#122012',
-                border: `1px solid ${isNew ? 'rgba(57,255,20,0.3)' : '#1c3a1c'}`,
+                background: isNew ? 'rgba(57,255,20,0.08)' : 'var(--secondary)',
+                border: `1px solid ${isNew ? 'rgba(57,255,20,0.4)' : 'var(--border)'}`,
                 transform: i === 0 && isNew ? 'scale(1.01)' : 'scale(1)',
               }}
             >
@@ -87,21 +87,21 @@ export default function AlertFeed() {
                   >
                     {cfg.label}
                   </span>
-                  <span className="font-semibold truncate" style={{ color: alert.disease === 'Healthy Crops' ? '#39ff14' : '#e8f5e8', fontSize: '13px' }}>
+                  <span className="font-semibold truncate" style={{ color: alert.disease === 'Healthy Crops' ? 'var(--primary)' : 'var(--foreground)', fontSize: '13px' }}>
                     {alert.disease}
                   </span>
                 </div>
-                <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b', letterSpacing: '0.05em', flexShrink: 0 }}>
+                <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.05em', flexShrink: 0 }}>
                   {alert.time}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)' }}>
                   {alert.sector}
                 </span>
                 <div className="flex items-center gap-1">
-                  <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b' }}>conf.</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '10px', color: alert.confidence > 95 ? '#39ff14' : '#e8f5e8', fontWeight: 600 }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)' }}>conf.</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: '10px', color: alert.confidence > 95 ? 'var(--primary)' : 'var(--foreground)', fontWeight: 600 }}>
                     {alert.confidence}%
                   </span>
                 </div>
@@ -111,11 +111,11 @@ export default function AlertFeed() {
         })}
       </div>
 
-      <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: '1px solid #1c3a1c' }}>
-        <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b', letterSpacing: '0.06em' }}>
+      <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--border)' }}>
+        <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
           {alerts.length} events logged
         </span>
-        <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#39ff14', letterSpacing: '0.06em' }}>
+        <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--primary)', letterSpacing: '0.06em' }}>
           avg confidence {(alerts.reduce((s, a) => s + a.confidence, 0) / alerts.length).toFixed(1)}%
         </span>
       </div>

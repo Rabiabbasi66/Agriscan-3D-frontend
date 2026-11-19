@@ -137,6 +137,7 @@ function buildAiMarker(detection, mapping) {
   pulse.rotation.x = -Math.PI / 2
   pulse.position.y = 0.05
   pulse.userData.isPulse = true
+  marker.userData.pulse = pulse
   marker.add(pulse)
 
   return marker

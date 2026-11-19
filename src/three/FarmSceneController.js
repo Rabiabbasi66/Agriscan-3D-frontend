@@ -4,10 +4,12 @@
  * UI state into `setScanning()` / `setDroneSpeed()`; all Three.js details stay
  * in this module.
  *
- * `_updateDrone()` is the only place drone motion is applied, and
+ * `_updateDrone()` handles realistic flight kinematics (pitch, roll, banking),
+ * OrbitControls delivers smooth interactive rotation/zoom, and
  * `onBeforeRender` is the hook for per-frame overlays.
  */
 import * as THREE from 'three'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { createScene, createGround, createCrops, createDiseaseZones, createEnvironment } from './scene'
 import { createDrone } from './drone'
 import { getDronePositionInto } from './dronePath'
@@ -24,27 +26,33 @@ export default class FarmSceneController {
     this._resizeObserver = null
     this._disposed = false
 
-    const W = container.clientWidth
-    const H = container.clientHeight
+    const W = container.clientWidth || 800
+    const H = container.clientHeight || 600
+    const isMobile = W < 768
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' })
     this.renderer.setSize(W, H)
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    // Soft shadows + filmic tone mapping so the metallic drone materials keep
-    // highlight detail instead of clipping to white.
+    // Mobile optimization: clamp pixel ratio to 1.5 on mobile to prevent GPU fill-rate throttling
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2))
+    // Soft PCF shadows + filmic tone mapping so metallic & composite drone materials
+    // retain dynamic range and specular highlights without clipping.
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 1.25
+    this.renderer.toneMappingExposure = 1.2
     container.appendChild(this.renderer.domElement)
 
-    const { scene, droneLight, droneFillLight, sun } = createScene()
+    const { scene, droneLight, droneFillLight, droneSpotLight, sun, rimLight, hemiLight, ambientLight } = createScene()
     this.scene = scene
     this.droneLight = droneLight
     this.droneFillLight = droneFillLight
+    this.droneSpotLight = droneSpotLight
     this.sun = sun
+    this.rimLight = rimLight
+    this.hemiLight = hemiLight
+    this.ambientLight = ambientLight
 
-    // Without an environment the GLB's metallic parts render nearly black.
+    // High-fidelity procedural reflection environment for realistic PBR response
     this.envMap = createEnvironment(this.renderer)
     this.scene.environment = this.envMap
 
@@ -58,8 +66,7 @@ export default class FarmSceneController {
     this.diseaseGroup = createDiseaseZones()
     this.scene.add(this.diseaseGroup)
 
-    // Persistent group, rebuilt (not re-created) per scan by setAiMarkers().
-    // Empty when there is no AI result, leaving the demo zones visible.
+    // Persistent group, rebuilt per scan by setAiMarkers()
     this.aiMarkerGroup = createAiMarkerGroup()
     this.scene.add(this.aiMarkerGroup)
 
@@ -68,15 +75,37 @@ export default class FarmSceneController {
     this.rotors = rotors
     this.scene.add(this.droneGroup)
 
-    this.camera = new THREE.PerspectiveCamera(55, W / H, 0.1, 500)
-    this.camera.position.set(45, 38, 55)
-    this.camera.lookAt(0, 0, 0)
+    // Fit camera perspective to screen aspect ratio (wider FOV on portrait mobile screens)
+    const aspect = W / H
+    const initialFov = aspect < 1.0 ? 64 : 55
+    this.camera = new THREE.PerspectiveCamera(initialFov, aspect, 0.1, 500)
+    // On mobile portrait, position slightly further back so drone & field remain fully framed
+    const camDistMultiplier = aspect < 1.0 ? 1.25 : 1.0
+    this.camera.position.set(45 * camDistMultiplier, 38 * camDistMultiplier, 55 * camDistMultiplier)
 
-    this.orbitAngle = 0
+    // Smooth OrbitControls setup
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement)
+    this.controls.enableDamping = true
+    this.controls.dampingFactor = 0.05
+    this.controls.screenSpacePanning = true
+    this.controls.minDistance = 6
+    this.controls.maxDistance = 150
+    this.controls.maxPolarAngle = Math.PI / 2 - 0.04 // prevent camera flipping underground
+    this.controls.minPolarAngle = 0.05
+    this.controls.target.set(0, 4, 0)
+    this.controls.autoRotate = false
+    this.controls.autoRotateSpeed = 0.4
+    this.controls.update()
+
+    /** Camera mode: 'overview' (orbits field) or 'drone' (tracks drone) */
+    this.cameraMode = 'overview'
+
     this.tDrone = 0
     this.pulseT = 0
     this.scanning = true
     this.droneSpeed = 0.004
+    this.scrollProgress = 0
+    this._smoothScrollProgress = 0
 
     /** detectionId of the currently highlighted AI marker (or null). */
     this.selectedDetectionId = null
@@ -84,8 +113,7 @@ export default class FarmSceneController {
     /** Optional per-frame callback: (controller) => void, runs before render. */
     this.onBeforeRender = null
 
-    // Drone position when the last scan was captured: detections are projected
-    // through that nadir camera snapshot, not the live pose.
+    // Drone position when the last scan was captured
     this.lastCapturePosition = null
     this._appearClock = 0
     this._lastFrameTime = null
@@ -93,8 +121,27 @@ export default class FarmSceneController {
     /** Raycaster reused for marker picking (no per-click allocation). */
     this._raycaster = new THREE.Raycaster()
 
-    /** Scratch vector for the per-frame drone path target. */
+    /** Scratch vectors for the per-frame drone path target. */
     this._droneTarget = new THREE.Vector3()
+    this._lookAheadTarget = new THREE.Vector3()
+
+    // Drag detection so orbit/zoom interactions do not trigger marker click events
+    this._isDragging = false
+    this._pointerDownPos = { x: 0, y: 0 }
+
+    this._onPointerDown = (e) => {
+      this._pointerDownPos = { x: e.clientX, y: e.clientY }
+      this._isDragging = false
+    }
+
+    this._onPointerMove = (e) => {
+      if (Math.hypot(e.clientX - this._pointerDownPos.x, e.clientY - this._pointerDownPos.y) > 5) {
+        this._isDragging = true
+      }
+    }
+
+    this.renderer.domElement.addEventListener('pointerdown', this._onPointerDown)
+    this.renderer.domElement.addEventListener('pointermove', this._onPointerMove)
 
     this._animate = this._animate.bind(this)
     this._onResize = this._onResize.bind(this)
@@ -102,26 +149,74 @@ export default class FarmSceneController {
     this._resizeObserver = new ResizeObserver(this._onResize)
     this._resizeObserver.observe(container)
 
-    // Only render while the viewer is on screen. A frame costs ~4.6 ms
-    // (66 draw calls, 55k triangles, 2048² shadow pass), i.e. ~275 ms of
-    // main-thread time per second spent drawing a canvas the user scrolled
-    // past. Scene state is kept, so the patrol resumes in place on return.
+    // Visibility-aware render loop: saves CPU/GPU when scrolled out of view
     this._visible = true
     this._intersectionObserver = new IntersectionObserver(
       (entries) => {
         const entry = entries[entries.length - 1]
-        if (entry) this._visible = entry.isIntersecting
+        if (entry) {
+          const wasVisible = this._visible
+          this._visible = entry.isIntersecting
+          if (!wasVisible && this._visible && !this._disposed) {
+            this._lastFrameTime = performance.now()
+            this._startLoop()
+          }
+        }
       },
       { threshold: 0 },
     )
     this._intersectionObserver.observe(container)
 
-    this._animate()
+    this._startLoop()
+  }
+
+  /** Start or restart the animation frame loop. @private */
+  _startLoop() {
+    if (this._rafId !== null) cancelAnimationFrame(this._rafId)
+    this._rafId = requestAnimationFrame(this._animate)
+  }
+
+  /** Switch camera tracking mode: 'overview' or 'drone'. */
+  setCameraMode(mode) {
+    this.cameraMode = mode
+    if (mode === 'drone') {
+      this.controls.target.copy(this.droneGroup.position)
+      // If camera is very far, pull in closer for a thrilling inspection view
+      if (this.camera.position.distanceTo(this.droneGroup.position) > 40) {
+        this.camera.position.set(
+          this.droneGroup.position.x + 14,
+          this.droneGroup.position.y + 8,
+          this.droneGroup.position.z + 14
+        )
+      }
+    } else {
+      this.controls.target.set(0, 4, 0)
+    }
+    this.controls.update()
+  }
+
+  /** Reset camera to the default isometric view overlooking the field. */
+  resetCamera() {
+    this.cameraMode = 'overview'
+    this.controls.target.set(0, 4, 0)
+    this.camera.position.set(45, 38, 55)
+    this.controls.update()
+  }
+
+  /** Toggle subtle cinematic auto-rotation. Returns the new active state. */
+  toggleAutoRotate() {
+    this.controls.autoRotate = !this.controls.autoRotate
+    return this.controls.autoRotate
   }
 
   /** Pause/resume the drone scan (rotors + forward flight). */
   setScanning(value) {
     this.scanning = value
+  }
+
+  /** Update normalized scroll progress (0..1) for smooth scroll-driven drone choreography */
+  setScrollProgress(progress) {
+    this.scrollProgress = Math.max(0, Math.min(1, progress || 0))
   }
 
   /** Update the drone patrol speed (world advance per frame tick). */
@@ -136,10 +231,6 @@ export default class FarmSceneController {
 
   /**
    * Mission state derived only from live controller state.
-   *
-   * `loopProgress` is the fraction of the current patrol cycle (period 2π in
-   * t) — a loop position, not a field survey percentage: the patrol is endless
-   * and has no waypoints.
    * @returns {{ scanning: boolean, position: THREE.Vector3, altitude: number, loopProgress: number }}
    */
   getMissionState() {
@@ -155,15 +246,8 @@ export default class FarmSceneController {
   }
 
   /**
-   * Replace the AI-scan markers with markers for `detections` (normalised, see
-   * normalizePrediction()). An empty or failed result clears them so the demo
-   * disease zones show through again.
-   *
-   * `capturePosition`, when given, is remembered and used as the nadir camera
-   * for projecting detections; later updates reuse it, and without any position
-   * the survey-grid fallback applies.
-   *
-   * @param {Array} detections normalised AI detections (may be [])
+   * Replace the AI-scan markers with markers for `detections`.
+   * @param {Array} detections normalised AI detections
    * @param {THREE.Vector3|null} [capturePosition] drone position at capture
    */
   setAiMarkers(detections, capturePosition = null) {
@@ -172,17 +256,19 @@ export default class FarmSceneController {
     }
     const effective = capturePosition || this.lastCapturePosition
     const result = rebuildAiMarkers(this.aiMarkerGroup, detections, effective)
-    this._appearClock = 0 // restart the marker appear animation
-    this.selectedDetectionId = null // a rescan invalidates any selection
+    this._appearClock = 0 // restart marker appear animation
+    this.selectedDetectionId = null
     return result
   }
 
   /**
    * Ground point under a mouse event (used for marker picking).
+   * Automatically ignores clicks that were part of an orbit drag.
    * @param {{clientX: number, clientY: number}} mouseEvent
    * @returns {THREE.Vector3|null} ground intersection, or null
    */
   pickGroundPoint(mouseEvent) {
+    if (this._isDragging) return null
     const rect = this.container.getBoundingClientRect()
     const ndcX = ((mouseEvent.clientX - rect.left) / rect.width) * 2 - 1
     const ndcY = -((mouseEvent.clientY - rect.top) / rect.height) * 2 + 1
@@ -192,8 +278,7 @@ export default class FarmSceneController {
   }
 
   /**
-   * Highlight the AI marker for a detection id, re-colouring its materials in
-   * place; pass null to clear. Returns true when a matching marker exists.
+   * Highlight the AI marker for a detection id; pass null to clear.
    * @param {string|null} detectionId
    * @returns {boolean}
    */
@@ -225,45 +310,101 @@ export default class FarmSceneController {
   }
 
   /**
-   * Drone motion for the current frame, using the allocation-free path
-   * variant so the loop allocates nothing per frame.
+   * Realistic drone aerodynamics: banking into curves, pitching forward,
+   * syncing searchlights, and scaling rotor spin smoothly.
+   * Delta-time normalized for 60Hz/120Hz/144Hz displays.
+   * @param {number} dtMs delta time in milliseconds
    * @private
    */
-  _updateDrone() {
+  _updateDrone(dtMs = 16.67) {
+    const dtFactor = dtMs / 16.6667
+
     if (this.scanning) {
-      this.tDrone += this.droneSpeed
+      this.tDrone += this.droneSpeed * dtFactor
     }
 
+    // Current target position along patrol curve
     this._droneTarget = getDronePositionInto(this.tDrone, this._droneTarget)
-    this.droneGroup.position.lerp(this._droneTarget, 0.08)
-    this.droneGroup.rotation.y = -this.tDrone + Math.PI
 
-    this.droneLight.position.copy(this.droneGroup.position)
-    this.droneLight.position.y += DRONE.lightOffsetY
+    // Look ahead on the trajectory to compute natural heading, pitch & banking
+    const lookAheadT = this.tDrone + (this.scanning ? 0.05 : 0.001)
+    const nextTarget = getDronePositionInto(lookAheadT, this._lookAheadTarget)
+    const flightDir = nextTarget.clone().sub(this._droneTarget)
 
-    // Fixed world offset, so the fill highlight does not spin with the airframe.
-    this.droneFillLight.position.copy(this.droneGroup.position)
-    this.droneFillLight.position.x += 2.2
-    this.droneFillLight.position.y += 3.4
-    this.droneFillLight.position.z -= 2.2
+    // Smooth position interpolation with organic hover breathing and scroll choreography
+    this._smoothScrollProgress = THREE.MathUtils.lerp(this._smoothScrollProgress, this.scrollProgress, 0.08 * dtFactor)
+    this.droneGroup.position.lerp(this._droneTarget, 0.08 * dtFactor)
+    const hoverOffset = Math.sin(performance.now() * 0.0025) * 0.12
+    this.droneGroup.position.y += hoverOffset * 0.05 + this._smoothScrollProgress * 1.5
 
-    if (!this.droneGroup.userData.mixer) {
+    // Subtle inspection scale on scroll
+    const scrollScale = 1 + this._smoothScrollProgress * 0.14
+    this.droneGroup.scale.set(scrollScale, scrollScale, scrollScale)
+
+    // Aerodynamic flight angles + scroll banking
+    const targetYaw = Math.atan2(flightDir.x, flightDir.z) + this._smoothScrollProgress * Math.PI * 0.35
+    const speed = flightDir.length()
+    // Pitch forward when flying forward
+    const targetPitch = this.scanning ? Math.min(0.2, speed * 0.25) : 0
+
+    // Roll banking into curves
+    const yawDelta = targetYaw - this.droneGroup.rotation.y
+    const normalizedYawDelta = Math.atan2(Math.sin(yawDelta), Math.cos(yawDelta))
+    const targetRoll = this.scanning ? -normalizedYawDelta * 0.8 : 0
+
+    this.droneGroup.rotation.y += normalizedYawDelta * 0.08 * dtFactor
+    this.droneGroup.rotation.x = THREE.MathUtils.lerp(this.droneGroup.rotation.x, targetPitch, 0.06 * dtFactor)
+    this.droneGroup.rotation.z = THREE.MathUtils.lerp(this.droneGroup.rotation.z, targetRoll, 0.06 * dtFactor)
+
+    // Synchronize inspection searchlight
+    if (this.droneSpotLight) {
+      this.droneSpotLight.position.copy(this.droneGroup.position)
+      this.droneSpotLight.position.y += DRONE.lightOffsetY || -0.5
+      this.droneSpotLight.target.position.set(
+        this.droneGroup.position.x,
+        0,
+        this.droneGroup.position.z
+      )
+    }
+
+    // Synchronize fill & point lights
+    if (this.droneLight) {
+      this.droneLight.position.copy(this.droneGroup.position)
+      this.droneLight.position.y += -1.5
+    }
+
+    if (this.droneFillLight) {
+      this.droneFillLight.position.copy(this.droneGroup.position)
+      this.droneFillLight.position.y += 2.0
+    }
+
+    // Rotor animations
+    if (this.droneGroup.userData.mixer) {
+      // Scale GLB animation: active flight (1.4x) vs gentle idle hover (0.08x)
+      const timeScale = this.scanning ? 1.4 : 0.08
+      if (this.droneGroup.userData.action) {
+        this.droneGroup.userData.action.setEffectiveTimeScale(timeScale)
+      }
+      this.droneGroup.userData.mixer.update(dtMs / 1000)
+    } else if (this.rotors) {
       const spin = this.scanning ? DRONE.rotorSpinActive : DRONE.rotorSpinIdle
-      this.rotors.forEach(r => { r.rotation.y += spin })
+      this.rotors.forEach(r => { r.rotation.y += spin * dtFactor })
     }
   }
 
-  /** Camera orbit + disease pulse animation. @private */
-  _updateCameraAndEffects() {
-    this.orbitAngle += 0.0006
-    this.pulseT += 0.04
+  /** Camera tracking & disease zone pulse animations. @private */
+  _updateCameraAndEffects(dtMs = 16.67) {
+    const dtFactor = dtMs / 16.6667
+    this.pulseT += 0.04 * dtFactor
 
-    const camR = 65
-    this.camera.position.x = Math.cos(this.orbitAngle) * camR
-    this.camera.position.z = Math.sin(this.orbitAngle) * camR
-    this.camera.position.y = 38 + Math.sin(this.orbitAngle * 0.3) * 4
-    this.camera.lookAt(0, 2, 0)
+    // Follow drone smoothly if active
+    if (this.cameraMode === 'drone') {
+      this.controls.target.lerp(this.droneGroup.position, 0.08 * dtFactor)
+    }
 
+    this.controls.update()
+
+    // Animate demo disease zones
     this.diseaseGroup.children.forEach(child => {
       if (child.userData.isPulse) {
         const scale = 1 + Math.sin(this.pulseT) * 0.3
@@ -272,7 +413,7 @@ export default class FarmSceneController {
       }
     })
 
-    // Same clock and equations as the demo zones so all rings breathe in sync.
+    // Animate AI detection marker pulses in sync
     this.aiMarkerGroup.children.forEach(marker => {
       const pulse = marker.userData.pulse
       if (pulse && pulse.userData.isPulse) {
@@ -286,37 +427,36 @@ export default class FarmSceneController {
   /** Render loop. @private */
   _animate() {
     if (this._disposed) return
-    this._rafId = requestAnimationFrame(this._animate)
 
-    // Off-screen: skip the frame entirely, but keep the clock fresh so the
-    // animation resumes without a jump in the appear/marker timings.
+    // Off-screen: stop loop to save CPU & GPU completely
     if (!this._visible) {
       this._lastFrameTime = performance.now()
+      this._rafId = null
       return
     }
 
-    // Delta time for the marker appear animation (clamped for tab switches).
+    this._rafId = requestAnimationFrame(this._animate)
+
+    // Accurate, clamped delta time
     const now = performance.now()
     if (this._lastFrameTime === null) this._lastFrameTime = now
     const dtMs = Math.min(now - this._lastFrameTime, 100)
     this._lastFrameTime = now
     this._appearClock += dtMs
+
     if (this.aiMarkerGroup.children.length > 0) {
       updateAppearAnimations(this.aiMarkerGroup, this._appearClock)
     }
 
-    if (this.droneGroup.userData.mixer) {
-      this.droneGroup.userData.mixer.update(dtMs / 1000)
-    }
+    this._updateDrone(dtMs)
+    this._updateCameraAndEffects(dtMs)
 
-    this._updateDrone()
-    this._updateCameraAndEffects()
     if (this.onBeforeRender) this.onBeforeRender(this)
 
     this.renderer.render(this.scene, this.camera)
   }
 
-  /** Debounced resize handling. @private */
+  /** Debounced resize handling with adaptive mobile framing. @private */
   _onResize() {
     if (this._resizePending) return
     this._resizePending = true
@@ -327,24 +467,42 @@ export default class FarmSceneController {
         this._resizePending = false
         return
       }
-      this.camera.aspect = W / H
+      const aspect = W / H
+      this.camera.aspect = aspect
+      // Dynamic FOV: increase vertical FOV on tall portrait mobile screens so full field is visible
+      this.camera.fov = aspect < 1.0 ? 64 : 55
       this.camera.updateProjectionMatrix()
+
+      const isMobile = W < 768
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2))
       this.renderer.setSize(W, H)
       this._resizePending = false
     })
   }
 
   /**
-   * Full teardown: stops the loop, releases GPU resources (geometries,
-   * materials) and removes the canvas. Safe to call twice.
+   * Full teardown: releases GPU buffers (geometries, materials, textures,
+   * shadow maps), removes listeners, and disposes OrbitControls. Safe to call twice.
    */
   dispose() {
     if (this._disposed) return
     this._disposed = true
 
-    if (this._rafId !== null) cancelAnimationFrame(this._rafId)
+    if (this._rafId !== null) {
+      cancelAnimationFrame(this._rafId)
+      this._rafId = null
+    }
+
     if (this._resizeObserver) this._resizeObserver.disconnect()
     if (this._intersectionObserver) this._intersectionObserver.disconnect()
+
+    this.renderer.domElement.removeEventListener('pointerdown', this._onPointerDown)
+    this.renderer.domElement.removeEventListener('pointermove', this._onPointerMove)
+
+    if (this.controls) {
+      this.controls.dispose()
+      this.controls = null
+    }
 
     if (this.droneGroup.userData.mixer) {
       this.droneGroup.userData.mixer.stopAllAction()
@@ -356,20 +514,24 @@ export default class FarmSceneController {
       this.envMap = null
     }
 
+    if (this.sun && this.sun.shadow && this.sun.shadow.map) {
+      this.sun.shadow.map.dispose()
+    }
+
     this.scene.traverse(obj => {
       if (obj.geometry) obj.geometry.dispose()
       if (obj.material) {
         const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
-        mats.forEach(m => m.dispose())
+        mats.forEach(m => {
+          if (m.map) m.map.dispose()
+          m.dispose()
+        })
       }
     })
 
-    // aiMarkerGroup is a scene child, so the traverse above already disposed
-    // every marker geometry/material.
     this.renderer.dispose()
     if (this.renderer.domElement.parentNode === this.container) {
       this.container.removeChild(this.renderer.domElement)
     }
   }
 }
-

@@ -25,16 +25,16 @@ const DRONE_SIZE = 5.0
 const PLACEHOLDER_SPAN = 3.3
 
 /**
- * Per-material PBR tuning for the GLB: close to the authored values, adding
- * environment response without changing the model's look.
+ * Per-material PBR tuning for the GLB: brings out high-end aerospace composite,
+ * carbon fiber, and polished alloy reflections in realistic lighting.
  */
 const MATERIAL_TUNING = {
-  shell: { roughness: 0.32, metalness: 0.08, envMapIntensity: 1.7 },
-  graphite: { roughness: 0.42, metalness: 0.72, envMapIntensity: 1.1 },
-  steel: { roughness: 0.22, metalness: 1.0, envMapIntensity: 1.5 },
-  orange: { roughness: 0.48, metalness: 0.05, envMapIntensity: 1.1 },
-  rubber: { roughness: 0.95, metalness: 0.0, envMapIntensity: 0.6 },
-  glass: { roughness: 0.06, metalness: 0.6, envMapIntensity: 1.7 },
+  shell: { roughness: 0.28, metalness: 0.12, envMapIntensity: 1.6 },
+  graphite: { roughness: 0.38, metalness: 0.65, envMapIntensity: 1.3 },
+  steel: { roughness: 0.18, metalness: 0.95, envMapIntensity: 2.0 },
+  orange: { roughness: 0.42, metalness: 0.05, envMapIntensity: 1.2 },
+  rubber: { roughness: 0.9, metalness: 0.02, envMapIntensity: 0.5 },
+  glass: { roughness: 0.05, metalness: 0.3, envMapIntensity: 2.2 },
 }
 
 /**
@@ -53,19 +53,21 @@ function tuneMaterial(material) {
       if (tuning.metalness !== undefined) m.metalness = tuning.metalness
       m.envMapIntensity = tuning.envMapIntensity
     } else {
-      m.envMapIntensity = 1.1
+      m.envMapIntensity = 1.3
     }
 
-    // Nav lights glow so the drone stays readable against the dark field.
+    // High-tech status LEDs and nav lights
     if (/glow/i.test(m.name) && m.emissive) {
-      m.emissive.copy(m.color)
-      m.emissiveIntensity = 1.8
+      m.emissive = new THREE.Color(0x38bdf8)
+      m.emissiveIntensity = 2.8
       m.toneMapped = false
     }
 
     if (/glass/i.test(m.name)) {
-      m.metalness = 0.6
-      m.roughness = 0.06
+      m.metalness = 0.25
+      m.roughness = 0.04
+      m.transparent = true
+      m.opacity = 0.85
     }
 
     m.needsUpdate = true
@@ -86,23 +88,25 @@ export function createDrone(droneLight) {
   placeholder.scale.setScalar(DRONE_SIZE / PLACEHOLDER_SPAN)
   droneGroup.add(placeholder)
 
+  // Sleek composite titanium-white shell
   const shellMat = new THREE.MeshStandardMaterial({
-    color: 0x2b3a2d,
-    roughness: 0.34,
+    color: 0xedf2f7,
+    roughness: 0.28,
     metalness: 0.12,
-    envMapIntensity: 1.2,
+    envMapIntensity: 1.5,
   })
   const bodyGeo = new THREE.BoxGeometry(1.4, 0.35, 1.4)
   const body = new THREE.Mesh(bodyGeo, shellMat)
   placeholder.add(body)
 
+  // Graphite / carbon fiber arms
   const armGeo = new THREE.BoxGeometry(2.4, 0.1, 0.18)
   const armGeo2 = new THREE.BoxGeometry(0.18, 0.1, 2.4)
   const armMat = new THREE.MeshStandardMaterial({
-    color: 0x3c4a3e,
-    roughness: 0.45,
+    color: 0x1e293b,
+    roughness: 0.38,
     metalness: 0.65,
-    envMapIntensity: 1.1,
+    envMapIntensity: 1.2,
   })
   const arm1 = new THREE.Mesh(armGeo, armMat)
   const arm2 = new THREE.Mesh(armGeo2, armMat)
@@ -110,12 +114,12 @@ export function createDrone(droneLight) {
 
   const rotorGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.06, 20)
   const rotorMat = new THREE.MeshStandardMaterial({
-    color: 0x39ff14,
+    color: 0x38bdf8,
     transparent: true,
-    opacity: 0.55,
-    roughness: 0.3,
-    metalness: 0.1,
-    envMapIntensity: 1.3,
+    opacity: 0.6,
+    roughness: 0.25,
+    metalness: 0.15,
+    envMapIntensity: 1.4,
     side: THREE.DoubleSide,
   })
   const rotorPositions = [[-1.1, 0.18, -1.1], [1.1, 0.18, -1.1], [-1.1, 0.18, 1.1], [1.1, 0.18, 1.1]]
@@ -128,12 +132,13 @@ export function createDrone(droneLight) {
     rotors.push(rotor)
   })
 
+  // Anodized gimbal sensor housing
   const gimbalGeo = new THREE.BoxGeometry(0.3, 0.3, 0.35)
   const gimbalMat = new THREE.MeshStandardMaterial({
-    color: 0x1c2a1e,
-    roughness: 0.12,
-    metalness: 0.7,
-    envMapIntensity: 1.5,
+    color: 0x0f172a,
+    roughness: 0.18,
+    metalness: 0.85,
+    envMapIntensity: 1.8,
   })
   const gimbal = new THREE.Mesh(gimbalGeo, gimbalMat)
   gimbal.position.set(0, -0.22, 0.3)
@@ -141,14 +146,14 @@ export function createDrone(droneLight) {
 
   const greenLight = new THREE.Mesh(
     new THREE.SphereGeometry(0.08, 10, 10),
-    new THREE.MeshBasicMaterial({ color: 0x39ff14 })
+    new THREE.MeshBasicMaterial({ color: 0x22c55e })
   )
   greenLight.position.set(1.0, 0, 1.0)
   placeholder.add(greenLight)
 
   const redLight = new THREE.Mesh(
     new THREE.SphereGeometry(0.08, 10, 10),
-    new THREE.MeshBasicMaterial({ color: 0xff3030 })
+    new THREE.MeshBasicMaterial({ color: 0xef4444 })
   )
   redLight.position.set(-1.0, 0, -1.0)
   placeholder.add(redLight)
@@ -160,12 +165,23 @@ export function createDrone(droneLight) {
   droneGroup.position.set(0, 12, 0)
   droneGroup.userData.rotors = rotors
   droneGroup.userData.light = droneLight
-  // Set to an AnimationMixer once the GLB clip plays; the controller stops
-  // spinning the procedural rotors when it is present.
   droneGroup.userData.mixer = null
+  droneGroup.userData.action = null
 
   loadModel('drone')
     .then((droneModel) => {
+      // Memory safety: if the scene or droneGroup was destroyed while loading, abort and dispose
+      if (!droneGroup.parent) {
+        droneModel.traverse((node) => {
+          if (node.geometry) node.geometry.dispose()
+          if (node.material) {
+            const mats = Array.isArray(node.material) ? node.material : [node.material]
+            mats.forEach((m) => m.dispose())
+          }
+        })
+        return
+      }
+
       // Assets arrive in different units: normalise by bounding box and centre
       // on the group origin.
       const box = new THREE.Box3().setFromObject(droneModel)
@@ -204,8 +220,10 @@ export function createDrone(droneLight) {
       const clips = droneModel.userData.animations || []
       if (clips.length > 0) {
         const mixer = new THREE.AnimationMixer(droneModel)
-        mixer.clipAction(clips[0]).play()
+        const action = mixer.clipAction(clips[0])
+        action.play()
         droneGroup.userData.mixer = mixer
+        droneGroup.userData.action = action
       } else {
         console.warn('drone.glb has no animation clip; using a static model')
       }

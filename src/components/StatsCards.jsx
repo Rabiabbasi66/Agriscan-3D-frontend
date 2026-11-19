@@ -102,13 +102,13 @@ export default function StatsCards() {
     <section className="py-16 px-6 max-w-7xl mx-auto" id="analytics">
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-6 h-px" style={{ background: '#39ff14' }} />
-          <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Real-time Analytics</span>
+          <div className="w-6 h-px" style={{ background: 'var(--primary)' }} />
+          <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--primary)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Real-time Analytics</span>
         </div>
-        <h2 className="font-display text-4xl font-700 tracking-wide" style={{ color: '#e8f5e8' }}>
+        <h2 className="font-display text-4xl font-700 tracking-wide" style={{ color: 'var(--foreground)' }}>
           Field Intelligence Dashboard
         </h2>
-        <p className="mt-2 text-base" style={{ color: '#6b9b6b' }}>
+        <p className="mt-2 text-base" style={{ color: 'var(--muted-foreground)' }}>
           Live metrics from the ongoing YOLOv8 aerial scan — updated every 8 seconds.
         </p>
       </div>
@@ -120,31 +120,31 @@ export default function StatsCards() {
             className="agri-card p-5 relative overflow-hidden group transition-all duration-300"
             style={{ animationDelay: `${i * 80}ms` }}
             onMouseEnter={e => {
-              e.currentTarget.style.borderColor = stat.accent + '66'
-              e.currentTarget.style.boxShadow = `0 0 24px ${stat.accent}18`
+              e.currentTarget.style.borderColor = stat.accent + '88'
+              e.currentTarget.style.boxShadow = `0 0 24px ${stat.accent}20`
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.borderColor = '#1c3a1c'
+              e.currentTarget.style.borderColor = 'var(--border)'
               e.currentTarget.style.boxShadow = 'none'
             }}
           >
             <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: `linear-gradient(90deg, ${stat.accent}66, transparent)` }} />
 
             <div className="flex items-start justify-between mb-3">
-              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                 {stat.label}
               </span>
-              <span style={{ color: stat.accent, opacity: 0.7 }}>{stat.icon}</span>
+              <span style={{ color: stat.accent, opacity: 0.85 }}>{stat.icon}</span>
             </div>
 
             <div className="flex items-end gap-1 mb-1">
-              <span className="font-display text-3xl font-700" style={{ color: '#e8f5e8', lineHeight: 1 }}>
+              <span className="font-display text-3xl font-700" style={{ color: 'var(--foreground)', lineHeight: 1 }}>
                 <AnimatedNumber target={parseFloat(stat.value)} />
                 {stat.label.includes('Score') || stat.label.includes('Confidence') || stat.label.includes('Battery') ? '%' : stat.label === 'Area Scanned' ? ' ha' : ''}
               </span>
             </div>
 
-            <p style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b', marginBottom: '8px' }}>
+            <p style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', marginBottom: '8px' }}>
               {stat.sub}
             </p>
 

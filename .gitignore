@@ -124,3 +124,11 @@ backend/.pytest_cache/
 # from here; work inside backend/ with its own git commands instead.
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 backend/
+
+# Local original backup
+backup_original/
+
+# Local FYP documentation
+FIELD_EXPLANATION_AND_VIVA.md
+FYP_EXPLANATION.md
+UI_POLISH_CHANGELOG.md
