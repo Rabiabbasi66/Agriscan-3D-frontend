@@ -637,3 +637,130 @@ section, .page-section {
     font-size: clamp(2rem, 9vw, 2.75rem);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   PREMIUM VISUAL EFFECTS (2026 polish pass)
+   ═══════════════════════════════════════════════════════════ */
+
+/* Animated aurora blobs behind hero content */
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+  will-change: transform;
+}
+.aurora-1 {
+  width: 520px; height: 520px;
+  background: radial-gradient(circle, rgba(16,185,129,0.16), transparent 65%);
+  top: -10%; left: -8%;
+  animation: aurora-drift-1 22s ease-in-out infinite alternate;
+}
+.aurora-2 {
+  width: 460px; height: 460px;
+  background: radial-gradient(circle, rgba(251,191,36,0.10), transparent 65%);
+  bottom: -15%; right: -6%;
+  animation: aurora-drift-2 26s ease-in-out infinite alternate;
+}
+.aurora-3 {
+  width: 380px; height: 380px;
+  background: radial-gradient(circle, rgba(6,78,59,0.28), transparent 65%);
+  top: 40%; left: 55%;
+  animation: aurora-drift-3 30s ease-in-out infinite alternate;
+}
+@keyframes aurora-drift-1 {
+  0% { transform: translate(0,0) scale(1); }
+  50% { transform: translate(60px, 40px) scale(1.12); }
+  100% { transform: translate(-30px, 70px) scale(0.95); }
+}
+@keyframes aurora-drift-2 {
+  0% { transform: translate(0,0) scale(1); }
+  50% { transform: translate(-70px, -30px) scale(1.08); }
+  100% { transform: translate(40px, -60px) scale(1.15); }
+}
+@keyframes aurora-drift-3 {
+  0% { transform: translate(0,0) scale(1); }
+  100% { transform: translate(-80px, 50px) scale(1.2); }
+}
+
+/* Hero headline entrance — letters rise with stagger */
+.hero-enter {
+  opacity: 0;
+  transform: translateY(34px);
+  animation: hero-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.hero-enter-1 { animation-delay: 0.15s; }
+.hero-enter-2 { animation-delay: 0.35s; }
+.hero-enter-3 { animation-delay: 0.55s; }
+.hero-enter-4 { animation-delay: 0.75s; }
+@keyframes hero-rise {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Scroll-linked hero text fade (JS sets --scroll-p) */
+.hero-content {
+  opacity: calc(1 - var(--scroll-p, 0) * 1.4);
+  transform: translateY(calc(var(--scroll-p, 0) * -70px)) scale(calc(1 - var(--scroll-p, 0) * 0.06));
+  transition: opacity 0.1s linear;
+  will-change: opacity, transform;
+}
+
+/* Card hover — lift + border glow + inner sheen */
+.agri-card {
+  position: relative;
+  overflow: hidden;
+}
+.agri-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(600px circle at var(--mx, 50%) var(--my, 50%), rgba(57,255,20,0.06), transparent 45%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.agri-card:hover::after { opacity: 1; }
+.agri-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(57,255,20,0.45);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.35), 0 0 24px rgba(57,255,20,0.10);
+}
+
+/* Buttons — subtle shine sweep on hover */
+button[class*="primary"], .btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -80%;
+  width: 50%; height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.22), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.55s ease;
+}
+.btn-shine:hover::before { left: 130%; }
+
+/* Section divider glow line */
+.section-glow-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(57,255,20,0.35), transparent);
+  margin: 0 auto;
+  max-width: 720px;
+}
+
+/* Custom selection */
+::selection {
+  background: rgba(57,255,20,0.28);
+  color: #e8f5e8;
+}
+
+/* Respect reduced motion for all decorative animation */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-blob, .hero-enter { animation: none !important; }
+  .aurora-blob { opacity: 0.5; }
+  .hero-enter { opacity: 1; transform: none; }
+  .agri-card, .agri-card::after { transition: none; }
+  .agri-card:hover { transform: none; }
+}

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import FarmSceneController from '../three/FarmSceneController'
+import Minimap from './Minimap'
 import { DISEASE_ZONES } from '../three/config'
 
 /** Format a world position for the marker info readout (virtual units). */
@@ -13,7 +14,7 @@ const formatPosition = (p) => `x ${p.x.toFixed(1)} · z ${p.z.toFixed(1)}`
  * `detections` (normalised AI scan results) become 3D markers; without them the
  * demo disease zones remain as the fallback visualisation.
  */
-export default function FarmViewer3D({ detections = null, selectedDetectionId: selectedDetectionIdProp = null, onSelectionChange = null, scrollProgress = 0 }) {
+export default function FarmViewer3D({ detections = null, selectedDetectionId: selectedDetectionIdProp = null, onSelectionChange = null, scrollProgress = 0, flightPattern = 'lissajous', missionSpeed = null, missionRunning = null }) {
   const mountRef = useRef(null)
   const controllerRef = useRef(null)
   const [webgpu, setWebgpu] = useState(null)
@@ -23,7 +24,11 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
   const [selectedDetectionId, setSelectedDetectionId] = useState(null)
   const [mission, setMission] = useState(null)
   const [cameraMode, setCameraMode] = useState('overview')
+  const [cameraModeLabel, setCameraModeLabel] = useState('FIELD VIEW')
+  const [cameraModeIcon, setCameraModeIcon] = useState('🌐')
   const [autoRotate, setAutoRotate] = useState(false)
+  const [heading, setHeading] = useState(0)
+  const prevPosRef = useRef(null)
 
   // Computed once per detections change: the HUD reads it in several places and
   // re-renders on every mission tick.
@@ -76,14 +81,31 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
   }, [selectedDetectionIdProp, focusAiMarker])
 
   // WebGPU capability badge (informational — renderer is WebGL).
+  const [webglError, setWebglError] = useState(false)
   useEffect(() => {
     setWebgpu('gpu' in navigator)
+  }, [])
+
+  // Honour OS-level reduced-motion preference for sway/pulse/wind effects.
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const apply = () => controllerRef.current?.setReducedMotion?.(mq.matches)
+    apply()
+    mq.addEventListener?.('change', apply)
+    return () => mq.removeEventListener?.('change', apply)
   }, [])
 
   // Create the scene controller once; dispose fully on unmount.
   useEffect(() => {
     if (!mountRef.current) return
-    const controller = new FarmSceneController(mountRef.current)
+    let controller
+    try {
+      controller = new FarmSceneController(mountRef.current)
+    } catch (err) {
+      console.error('WebGL scene failed to initialise:', err)
+      setWebglError(true)
+      return
+    }
     controllerRef.current = controller
 
     controller.container.addEventListener('click', handleCanvasClick)
@@ -107,6 +129,33 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
   useEffect(() => {
     controllerRef.current?.setScrollProgress(scrollProgress)
   }, [scrollProgress])
+
+  useEffect(() => {
+    controllerRef.current?.setFlightPattern?.(flightPattern)
+  }, [flightPattern])
+
+  useEffect(() => {
+    if (missionSpeed != null) controllerRef.current?.setDroneSpeed(missionSpeed * 0.001)
+  }, [missionSpeed])
+
+  useEffect(() => {
+    if (missionRunning != null) setScanning(missionRunning)
+  }, [missionRunning])
+
+  // Heading derived from real drone position deltas between mission ticks.
+  useEffect(() => {
+    const p = mission?.position
+    if (!p) return
+    const prev = prevPosRef.current
+    if (prev) {
+      const dx = p.x - prev.x
+      const dz = p.z - prev.z
+      if (dx * dx + dz * dz > 1e-8) {
+        setHeading((Math.atan2(dx, dz) * 180 / Math.PI + 360) % 360)
+      }
+    }
+    prevPosRef.current = { x: p.x, z: p.z }
+  }, [mission])
 
   // HUD-only mission sampling at 4 Hz, never a scene rebuild. ALT renders to
   // one decimal place, so a tick that would not change that text (paused, or a
@@ -139,6 +188,24 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
     }
   }, [detections])
 
+  if (webglError) {
+    return (
+      <div className="relative w-full h-full flex items-center justify-center" id="overview">
+        <div className="agri-card p-8 text-center max-w-sm" role="alert">
+          <div style={{ fontFamily: 'monospace', fontSize: '11px', letterSpacing: '0.1em', color: '#ff6020', textTransform: 'uppercase', marginBottom: 8 }}>
+            WebGL unavailable
+          </div>
+          <div style={{ color: 'var(--foreground)', fontSize: '14px', marginBottom: 6 }}>
+            The 3D farm view could not start on this device.
+          </div>
+          <div style={{ color: 'var(--muted-foreground)', fontSize: '12px' }}>
+            Please try a recent desktop browser with hardware acceleration enabled. Upload, history and analytics still work.
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="relative w-full h-full" id="overview">
       <div ref={mountRef} className="w-full h-full" />
@@ -167,6 +234,62 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
             ALT: <span style={{ color: 'var(--foreground)' }}>{mission ? `${mission.altitude.toFixed(1)}m` : '10.2m'}</span>
           </span>
         </div>
+        <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden sm:block pointer-events-auto">
+          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+            HDG: <span style={{ color: 'var(--foreground)' }}>{heading.toFixed(0).padStart(3, '0')}°</span>
+          </span>
+        </div>
+        <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden sm:block pointer-events-auto">
+          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+            SPD: <span style={{ color: 'var(--foreground)' }}>{(droneSpeed * 1000).toFixed(1)} m/s</span>
+          </span>
+        </div>
+        {mission && (
+          <>
+            <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden md:block pointer-events-auto">
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+                BAT: <span style={{ color: mission.battery > 30 ? 'var(--foreground)' : '#ff6020' }}>{mission.battery.toFixed(0)}%</span>
+              </span>
+            </div>
+            <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden md:block pointer-events-auto">
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+                T: <span style={{ color: 'var(--foreground)' }}>{Math.floor(mission.elapsed / 60)}:{String(Math.floor(mission.elapsed % 60)).padStart(2, '0')}</span>
+              </span>
+            </div>
+            <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden md:block pointer-events-auto">
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+                CAPT: <span style={{ color: 'var(--foreground)' }}>{mission.captures}</span>
+              </span>
+            </div>
+            <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden md:block pointer-events-auto">
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+                COV: <span style={{ color: 'var(--primary)' }}>{((mission.coverage || 0) * 100).toFixed(0)}%</span>
+              </span>
+            </div>
+            <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden lg:block pointer-events-auto" title="Simulated wind strength">
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+                WND: <span style={{ color: 'var(--foreground)' }}>{(mission.wind ?? 0).toFixed(1)}</span>
+              </span>
+            </div>
+            <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden lg:block pointer-events-auto">
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+                LAP: <span style={{ color: 'var(--foreground)' }}>{(mission.loopProgress * 100).toFixed(0)}%</span>
+              </span>
+            </div>
+            <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden lg:block pointer-events-auto">
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--primary)', letterSpacing: '0.06em' }}>
+                {String(mission.pattern || 'lissajous').toUpperCase()}
+              </span>
+            </div>
+            {mission.rtk && (
+              <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 pointer-events-auto" style={{ borderColor: 'rgba(255,96,32,0.5)' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#ff6020', letterSpacing: '0.06em' }}>
+                  ⏏ RTK
+                </span>
+              </div>
+            )}
+          </>
+        )}
         {diseaseCount > 0 && (
           <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden sm:flex items-center pointer-events-auto">
             <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--primary)', letterSpacing: '0.06em' }}>
@@ -187,29 +310,36 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
       </div>
 
       {/* 3D Camera & View Controls: Responsive Glass Toolbar */}
-      <div className="absolute top-12 right-2 md:top-14 md:right-4 flex items-center gap-1.5 z-10">
+      <div className="absolute top-[6.5rem] right-2 sm:top-14 sm:right-4 md:top-14 md:right-4 flex items-center gap-1.5 z-10">
         <div className="glass-panel p-1 flex items-center gap-1 md:gap-1.5 shadow-lg">
           <button
             onClick={() => {
-              const next = cameraMode === 'overview' ? 'drone' : 'overview'
+              const modes = ['overview', 'drone', 'fpv', 'topdown']
+              const labels = { overview: 'FIELD VIEW', drone: 'CHASE', fpv: 'DRONE CAM', topdown: 'TOP-DOWN' }
+              const icons = { overview: '🌐', drone: '🎯', fpv: '📷', topdown: '⬇' }
+              const next = modes[(modes.indexOf(cameraMode) + 1) % modes.length]
               setCameraMode(next)
               controllerRef.current?.setCameraMode(next)
+              setCameraModeLabel(labels[next])
+              setCameraModeIcon(icons[next])
             }}
             className="px-2 py-1 md:px-2.5 text-xs font-mono rounded transition-colors flex items-center gap-1"
             style={{
-              background: cameraMode === 'drone' ? 'rgba(57,255,20,0.18)' : 'transparent',
-              color: cameraMode === 'drone' ? 'var(--primary)' : 'var(--muted-foreground)',
-              border: `1px solid ${cameraMode === 'drone' ? 'var(--primary)' : 'transparent'}`,
+              background: cameraMode !== 'overview' ? 'rgba(57,255,20,0.18)' : 'transparent',
+              color: cameraMode !== 'overview' ? 'var(--primary)' : 'var(--muted-foreground)',
+              border: `1px solid ${cameraMode !== 'overview' ? 'var(--primary)' : 'transparent'}`,
             }}
-            title="Toggle between field overview and tracking the drone"
+            title="Cycle camera: field orbit → chase drone → drone camera → top-down map"
           >
-            <span className="hidden sm:inline">{cameraMode === 'drone' ? '🎯 TRACK DRONE' : '🌐 FIELD VIEW'}</span>
-            <span className="sm:hidden">{cameraMode === 'drone' ? '🎯' : '🌐'}</span>
+            <span className="hidden sm:inline">{cameraModeIcon} {cameraModeLabel}</span>
+            <span className="sm:hidden">{cameraModeIcon}</span>
           </button>
           <button
             onClick={() => {
               controllerRef.current?.resetCamera()
               setCameraMode('overview')
+              setCameraModeLabel('FIELD VIEW')
+              setCameraModeIcon('🌐')
             }}
             className="px-1.5 py-1 md:px-2 text-xs font-mono rounded border border-transparent hover:border-green-500/30 transition-colors"
             style={{ color: 'var(--muted-foreground)' }}
@@ -243,6 +373,21 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
         </span>
       </div>
 
+      {/* Capture log: last simulated captures with virtual position/altitude */}
+      {mission && mission.captureLog && mission.captureLog.length > 0 && (
+        <div className="absolute bottom-28 left-2 md:bottom-32 md:left-4 glass-panel px-2.5 py-2 z-10 hidden sm:block" style={{ maxWidth: '210px' }}>
+          <div style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)', letterSpacing: '0.1em', marginBottom: 4 }}>
+            CAPTURE LOG · SIM
+          </div>
+          {mission.captureLog.slice(-4).reverse().map((c, i) => (
+            <div key={i} style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--foreground)', lineHeight: 1.5 }}>
+              <span style={{ color: 'var(--primary)' }}>#{String(mission.captureLog.length - i).padStart(2, '0')}</span>
+              {' '}t+{c.t}s · alt {c.alt}m · x{c.x} z{c.z}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Bottom Left Legend: Compact on mobile */}
       <div className="absolute bottom-3 left-2 md:bottom-4 md:left-4 flex flex-col gap-1 z-10">
         {[{ color: '#ff2020', label: 'High Severity' }, { color: '#ff6020', label: 'Medium' }, { color: '#ffaa20', label: 'Low Severity' }].map(item => (
@@ -251,6 +396,11 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
             <span style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)', letterSpacing: '0.05em' }}>{item.label}</span>
           </div>
         ))}
+      </div>
+
+      {/* Bottom Right: mission minimap (above speed controls) */}
+      <div className="absolute bottom-16 right-2 md:bottom-20 md:right-4 z-10 hidden sm:block">
+        <Minimap getPosition={() => controllerRef.current?.getDroneLivePosition()} />
       </div>
 
       {/* Bottom Right Controls: Speed Slider & Pause */}
@@ -294,17 +444,22 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
           <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)' }}>
             POS: <span style={{ color: 'var(--foreground)' }}>{selectedMeta.position ? formatPosition(selectedMeta.position) : '—'}</span>
           </div>
+          {selectedMeta.severity && (
+            <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)' }}>
+              TIER: <span style={{ color: selectedMeta.severity === 'high' ? '#ff3030' : selectedMeta.severity === 'medium' ? '#ff9020' : 'var(--primary)' }}>{String(selectedMeta.severity).toUpperCase()}</span>
+            </div>
+          )}
           <div style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)', marginTop: 4, opacity: 0.8 }}>
-            virtual camera projection · not GPS
+            virtual camera projection · not GPS · decision support only
           </div>
         </div>
       )}
 
       {/* Top Left Disease Zones Indicator */}
-      <div className="absolute top-16 left-2 md:top-4 md:left-4 glass-panel p-2 md:p-2.5 max-w-36 md:max-w-44 z-10">
+      <div className="absolute top-[7.5rem] left-2 sm:top-20 md:top-4 md:left-4 glass-panel p-2 md:p-2.5 max-w-36 md:max-w-44 z-10">
         <div className="flex items-center gap-1.5 mb-1">
           <div className="w-1.5 h-1.5 rounded-full animate-blink shrink-0" style={{ background: '#ff3030' }} />
-          <span style={{ fontFamily: 'monospace', fontSize: '9px', color: '#ff3030', letterSpacing: '0.06em' }}>4 ZONES DETECTED</span>
+          <span style={{ fontFamily: 'monospace', fontSize: '9px', color: '#ff3030', letterSpacing: '0.06em' }}>{diseaseCount} ZONES DETECTED</span>
         </div>
         {DISEASE_ZONES.slice(0, 2).map(z => (
           <div key={z.label} className="flex items-center justify-between mt-0.5">

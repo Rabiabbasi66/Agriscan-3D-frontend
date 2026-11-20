@@ -92,14 +92,17 @@ export default function LoadingScreen({ visible = true, progress = 0 }) {
         <p
           style={{
             fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '11px',
+            fontSize: 'clamp(9px, 2.4vw, 11px)',
             color: '#6b9b6b',
-            letterSpacing: '0.15em',
-            marginTop: 8,
+            letterSpacing: '0.12em',
+            marginTop: 10,
             textTransform: 'uppercase',
+            lineHeight: 1.7,
+            maxWidth: 'min(560px, 88vw)',
           }}
         >
-          Autonomous Crop Health & Aerial Telemetry
+          WebGPU-Based Virtual Drone<br />
+          Crop Mapping with AI-Powered Disease Detection
         </p>
       </div>
 

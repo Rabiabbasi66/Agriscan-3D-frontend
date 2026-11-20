@@ -110,6 +110,7 @@ export default function StatsCards() {
         </h2>
         <p className="mt-2 text-base" style={{ color: 'var(--muted-foreground)' }}>
           Live metrics from the ongoing YOLOv8 aerial scan — updated every 8 seconds.
+          <span style={{ opacity: 0.6 }}> Values shown are demo data until scans are saved.</span>
         </p>
       </div>
 

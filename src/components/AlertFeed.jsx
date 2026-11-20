@@ -1,17 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react'
 
+// Simulated feed for demonstration. Disease names below are real PlantVillage
+// classes the trained classifier can actually output (see backend class map).
 const INITIAL_ALERTS = [
-  { id: 'a1', time: '14:32:18', disease: 'Leaf Blight (Alternaria)', sector: 'Field A — Row 12–18', severity: 'high', confidence: 97.4, lat: '28.6°N', lon: '77.1°E' },
-  { id: 'a2', time: '14:29:04', disease: 'Powdery Mildew', sector: 'Field B — Row 4–7', severity: 'medium', confidence: 94.1, lat: '28.6°N', lon: '77.2°E' },
-  { id: 'a3', time: '14:22:51', disease: 'Root Rot (Pythium)', sector: 'Field C — Row 21–26', severity: 'high', confidence: 96.8, lat: '28.7°N', lon: '77.1°E' },
-  { id: 'a4', time: '14:18:33', disease: 'Wheat Rust', sector: 'Field A — Row 31–34', severity: 'low', confidence: 89.2, lat: '28.6°N', lon: '77.0°E' },
-  { id: 'a5', time: '14:12:07', disease: 'Downy Mildew', sector: 'Field D — Row 8–10', severity: 'medium', confidence: 91.5, lat: '28.5°N', lon: '77.2°E' },
-  { id: 'a6', time: '14:06:44', disease: 'Healthy Crops', sector: 'Field B — Row 14–20', severity: 'low', confidence: 99.1, lat: '28.6°N', lon: '77.1°E' },
+  { id: 'a1', time: '14:32:18', disease: 'Late Blight', crop: 'Tomato', sector: 'Field A — Row 12–18', severity: 'high', confidence: 97.4, lat: '28.6°N', lon: '77.1°E' },
+  { id: 'a2', time: '14:29:04', disease: 'Powdery Mildew', crop: 'Squash', sector: 'Field B — Row 4–7', severity: 'medium', confidence: 94.1, lat: '28.6°N', lon: '77.2°E' },
+  { id: 'a3', time: '14:22:51', disease: 'Early Blight', crop: 'Potato', sector: 'Field C — Row 21–26', severity: 'high', confidence: 96.8, lat: '28.7°N', lon: '77.1°E' },
+  { id: 'a4', time: '14:18:33', disease: 'Common Rust', crop: 'Corn (maize)', sector: 'Field A — Row 31–34', severity: 'low', confidence: 89.2, lat: '28.6°N', lon: '77.0°E' },
+  { id: 'a5', time: '14:12:07', disease: 'Leaf Blight', crop: 'Grape', sector: 'Field D — Row 8–10', severity: 'medium', confidence: 91.5, lat: '28.5°N', lon: '77.2°E' },
+  { id: 'a6', time: '14:06:44', disease: 'Healthy', crop: 'Tomato', sector: 'Field B — Row 14–20', severity: 'low', confidence: 99.1, lat: '28.6°N', lon: '77.1°E' },
 ]
 
 const NEW_ALERTS = [
-  { time: '', disease: 'Septoria Leaf Spot', sector: 'Field A — Row 5–9', severity: 'medium', confidence: 93.7, lat: '28.6°N', lon: '77.0°E' },
-  { time: '', disease: 'Fusarium Wilt', sector: 'Field C — Row 14–17', severity: 'high', confidence: 98.2, lat: '28.7°N', lon: '77.2°E' },
+  { time: '', disease: 'Septoria Leaf Spot', crop: 'Tomato', sector: 'Field A — Row 5–9', severity: 'medium', confidence: 93.7, lat: '28.6°N', lon: '77.0°E' },
+  { time: '', disease: 'Apple Scab', crop: 'Apple', sector: 'Field C — Row 14–17', severity: 'high', confidence: 98.2, lat: '28.7°N', lon: '77.2°E' },
 ]
 
 const SEVERITY_CONFIG = {
@@ -62,6 +64,9 @@ export default function AlertFeed() {
           <div className="px-2 py-0.5 rounded-sm" style={{ background: 'rgba(57,255,20,0.1)', border: '1px solid rgba(57,255,20,0.2)' }}>
             <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--primary)', letterSpacing: '0.08em' }}>LIVE</span>
           </div>
+          <div className="px-2 py-0.5 rounded-sm" style={{ background: 'var(--secondary)', border: '1px solid var(--border)' }} title="Simulated demo feed — real detections appear after an AI scan">
+            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.08em' }}>SIM</span>
+          </div>
         </div>
       </div>
 
@@ -87,7 +92,7 @@ export default function AlertFeed() {
                   >
                     {cfg.label}
                   </span>
-                  <span className="font-semibold truncate" style={{ color: alert.disease === 'Healthy Crops' ? 'var(--primary)' : 'var(--foreground)', fontSize: '13px' }}>
+                  <span className="font-semibold truncate" style={{ color: alert.disease === 'Healthy' ? 'var(--primary)' : 'var(--foreground)', fontSize: '13px' }}>
                     {alert.disease}
                   </span>
                 </div>

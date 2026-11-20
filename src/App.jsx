@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, lazy, Suspense } from 'react'
 import Navbar from './components/Navbar'
 import FarmViewer3D from './components/FarmViewer3D'
 import StatsCards from './components/StatsCards'
@@ -6,7 +6,8 @@ import ScanDashboard from './components/ScanDashboard'
 import ImageScanner from './components/ImageScanner'
 import PredictionHistory from './components/PredictionHistory'
 import FieldHealthMap from './components/FieldHealthMap'
-import TeamSection from './components/TeamSection'
+const TeamSection = lazy(() => import('./components/TeamSection'))
+import ErrorBoundary from './components/ErrorBoundary'
 import FieldAnalytics from './components/FieldAnalytics'
 import LoadingScreen from './components/LoadingScreen'
 import { AuthProvider } from './context/AuthContext'
@@ -14,21 +15,33 @@ import { normalizePrediction } from './services/api'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
-function HeroSection({ detections = null, selectedDetectionId = null, onDetectionSelect = null, scrollProgress = 0 }) {
+function HeroSection({ detections = null, selectedDetectionId = null, onDetectionSelect = null, scrollProgress = 0, flightPattern = 'lissajous', missionSpeed = null, missionRunning = null }) {
   return (
     <div className="hero-wrapper" id="overview">
+      {/* Ambient aurora glows behind the 3D scene */}
+      <div className="aurora-blob aurora-1" aria-hidden="true" />
+      <div className="aurora-blob aurora-2" aria-hidden="true" />
+      <div className="aurora-blob aurora-3" aria-hidden="true" />
       <div className="absolute inset-0 pt-16">
-        <FarmViewer3D
-          detections={detections}
-          selectedDetectionId={selectedDetectionId}
-          onSelectionChange={onDetectionSelect}
-          scrollProgress={scrollProgress}
-        />
+        <ErrorBoundary>
+          <FarmViewer3D
+            detections={detections}
+            selectedDetectionId={selectedDetectionId}
+            onSelectionChange={onDetectionSelect}
+            scrollProgress={scrollProgress}
+            flightPattern={flightPattern}
+            missionSpeed={missionSpeed}
+            missionRunning={missionRunning}
+          />
+        </ErrorBoundary>
       </div>
 
-      <div className="relative z-10 flex flex-col justify-end h-full pb-14 md:pb-16 px-4 md:px-8 pointer-events-none container-center">
+      <div
+        className="relative z-10 flex flex-col justify-end h-full pb-14 md:pb-16 px-4 md:px-8 pointer-events-none container-center hero-content"
+        style={{ ['--scroll-p']: scrollProgress }}
+      >
         <div className="max-w-3xl">
-          <div className="flex items-center gap-3 mb-3 md:mb-4">
+          <div className="flex items-center gap-3 mb-3 md:mb-4 hero-enter hero-enter-1">
             <div className="glass-panel flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ border: '1px solid var(--border)' }}>
               <span className="w-2 h-2 rounded-full animate-blink" style={{ background: 'var(--primary)' }} />
               <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--primary)', letterSpacing: '0.1em' }}>
@@ -37,20 +50,20 @@ function HeroSection({ detections = null, selectedDetectionId = null, onDetectio
             </div>
           </div>
 
-          <h1 className="font-display font-700 leading-none mb-3 md:mb-4" style={{ fontSize: 'clamp(38px, 7.5vw, 84px)', color: 'var(--foreground)', letterSpacing: '-0.01em' }}>
+          <h1 className="font-display font-700 leading-none mb-3 md:mb-4 hero-enter hero-enter-2" style={{ fontSize: 'clamp(38px, 7.5vw, 84px)', color: 'var(--foreground)', letterSpacing: '-0.01em' }}>
             AGRI
             <span style={{ color: 'var(--primary)' }}>SCAN</span>
             {' '}
             <span style={{ color: 'var(--primary)', textShadow: '0 0 25px rgba(57,255,20,0.45)' }}>3D</span>
           </h1>
 
-          <p className="text-sm md:text-base max-w-xl mb-5 md:mb-6" style={{ color: 'var(--card-foreground)', lineHeight: '1.6', opacity: 0.9 }}>
+          <p className="text-sm md:text-base max-w-xl mb-5 md:mb-6 hero-enter hero-enter-3" style={{ color: 'var(--card-foreground)', lineHeight: '1.6', opacity: 0.9 }}>
             Autonomous drone flyover with YOLOv8 real-time AI disease detection. Pinpoint crop pathologies mapped directly to 3D field coordinates.
           </p>
 
-          <div className="flex flex-wrap items-center gap-3 md:gap-4 pointer-events-auto">
+          <div className="flex flex-wrap items-center gap-3 md:gap-4 pointer-events-auto hero-enter hero-enter-4">
             <button
-              className="px-5 py-2.5 md:px-6 md:py-3 rounded font-display font-700 tracking-wider text-xs md:text-sm transition-all duration-200 hover:scale-105 active:scale-95"
+              className="btn-shine px-5 py-2.5 md:px-6 md:py-3 rounded font-display font-700 tracking-wider text-xs md:text-sm transition-all duration-200 hover:scale-105 active:scale-95"
               style={{ background: 'var(--primary)', color: 'var(--primary-foreground)', letterSpacing: '0.08em' }}
               onClick={() => document.getElementById('image-scanner')?.scrollIntoView({ behavior: 'smooth' })}
             >
@@ -123,7 +136,7 @@ function Footer() {
             AGRI<span style={{ color: 'var(--primary)' }}>SCAN</span> <span style={{ color: 'var(--muted-foreground)', fontSize: '14px' }}>3D</span>
           </div>
           <p style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
-            Final Year Project · Autonomous Aerial Crop Monitoring & YOLOv8 Health Mapping
+            Final Year Project · AgriScan 3D: WebGPU-Based Virtual Drone Crop Mapping with AI-Powered Disease Detection
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4 md:gap-8">
@@ -152,6 +165,7 @@ export default function App() {
   const [aiDetections, setAiDetections] = useState(null)
   const [selectedDetectionId, setSelectedDetectionId] = useState(null)
   const [scrollProgress, setScrollProgress] = useState(0)
+  const [missionConfig, setMissionConfig] = useState({ speed: 4, pattern: 'lissajous', running: true })
   const sectionsRef = React.useRef(null)
 
   // Initialize GSAP ScrollTrigger
@@ -184,6 +198,29 @@ export default function App() {
     return () => {
       ScrollTrigger.getAll().forEach(trigger => trigger.kill())
     }
+  }, [])
+
+  // Card sheen: track cursor position over .agri-card for the radial hover glow.
+  useEffect(() => {
+    let active = null
+    const onMove = (e) => {
+      const card = e.target.closest?.('.agri-card') || null
+      if (card === active) {
+        const r = card.getBoundingClientRect()
+        card.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`)
+        card.style.setProperty('--my', `${((e.clientY - r.top) / r.height) * 100}%`)
+        return
+      }
+      if (active) { active.style.setProperty('--mx', '50%'); active.style.setProperty('--my', '50%') }
+      active = card
+      if (active) {
+        const r = active.getBoundingClientRect()
+        active.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`)
+        active.style.setProperty('--my', `${((e.clientY - r.top) / r.height) * 100}%`)
+      }
+    }
+    window.addEventListener('pointermove', onMove, { passive: true })
+    return () => window.removeEventListener('pointermove', onMove)
   }, [])
 
   // Track scroll progress for hero section
@@ -234,6 +271,9 @@ export default function App() {
           selectedDetectionId={selectedDetectionId}
           onDetectionSelect={setSelectedDetectionId}
           scrollProgress={scrollProgress}
+          flightPattern={missionConfig.pattern}
+          missionSpeed={missionConfig.speed}
+          missionRunning={missionConfig.running}
         />
 
         {/* Scroll-reveal sections */}
@@ -252,7 +292,10 @@ export default function App() {
 
           <section className="page-section">
             <div className="container-center">
-              <ScanDashboard />
+              <ScanDashboard
+                onConfigChange={(c) => setMissionConfig(prev => ({ ...prev, ...c }))}
+                onRunningChange={(r) => setMissionConfig(prev => ({ ...prev, running: r }))}
+              />
             </div>
           </section>
 
@@ -286,7 +329,9 @@ export default function App() {
 
           <section id="team" className="page-section">
             <div className="container-center">
-              <TeamSection />
+              <Suspense fallback={<div className="agri-card p-8 text-center" style={{ color: 'var(--muted-foreground)', fontFamily: 'monospace', fontSize: '12px' }}>LOADING TEAM…</div>}>
+                <TeamSection />
+              </Suspense>
             </div>
           </section>
         </div>

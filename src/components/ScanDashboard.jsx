@@ -2,15 +2,16 @@ import { useState, useEffect } from 'react'
 import AlertFeed from './AlertFeed'
 
 const CROP_TYPES = ['Wheat', 'Corn', 'Rice', 'Soybean', 'Cotton', 'Sugarcane']
+// Demo distribution for layout preview only — real per-disease breakdown comes
+// from GET /api/v1/predictions once scans are saved by a signed-in user.
 const DISEASE_TYPES = [
-  { name: 'Leaf Blight', count: 3, pct: 4.2 },
-  { name: 'Powdery Mildew', count: 2, pct: 2.8 },
-  { name: 'Root Rot', count: 3, pct: 3.9 },
-  { name: 'Wheat Rust', count: 1, pct: 1.1 },
   { name: 'Healthy', count: 0, pct: 88.0 },
+  { name: 'Late Blight', count: 3, pct: 4.2 },
+  { name: 'Powdery Mildew', count: 2, pct: 2.8 },
+  { name: 'Early Blight', count: 3, pct: 3.9 },
 ]
 
-export default function ScanDashboard() {
+export default function ScanDashboard({ onConfigChange = null, onRunningChange = null }) {
   const [config, setConfig] = useState({
     altitude: 10,
     speed: 4,
@@ -20,6 +21,15 @@ export default function ScanDashboard() {
   const [selectedCrop, setSelectedCrop] = useState('Wheat')
   const [scanProgress, setScanProgress] = useState(73)
   const [running, setRunning] = useState(true)
+
+  // Push mission settings up to App so the 3D drone actually follows them.
+  useEffect(() => {
+    onConfigChange?.({ speed: config.speed, pattern: config.pattern })
+  }, [config.speed, config.pattern, onConfigChange])
+
+  useEffect(() => {
+    onRunningChange?.(running)
+  }, [running, onRunningChange])
 
   useEffect(() => {
     if (!running) return
@@ -185,7 +195,7 @@ export default function ScanDashboard() {
 
           <div className="flex flex-col gap-2">
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>
-              Detection Breakdown
+              Detection Breakdown <span style={{ color: 'var(--muted-foreground)', opacity: 0.6 }}>(demo)</span>
             </span>
             {DISEASE_TYPES.map(dt => (
               <div key={dt.name}>
@@ -214,8 +224,8 @@ export default function ScanDashboard() {
             {[
               { l: 'Images / session', v: '1,204' },
               { l: 'Processing time', v: '0.34s' },
-              { l: 'Model', v: 'YOLOv8n' },
-              { l: 'Classes trained', v: '28' },
+              { l: 'Model', v: 'YOLOv8n-cls' },
+              { l: 'Classes trained', v: '38' },
             ].map(s => (
               <div key={s.l} className="rounded p-2.5" style={{ background: 'var(--secondary)', border: '1px solid var(--border)' }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--muted-foreground)', letterSpacing: '0.06em', marginBottom: '3px' }}>{s.l.toUpperCase()}</div>
