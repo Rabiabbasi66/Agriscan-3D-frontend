@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react'
+import { getPredictions, hasAuthToken } from '../services/api'
+import { useAuth } from '../context/AuthContext'
 
 function AnimatedNumber({ target, suffix = '' }) {
   const [val, setVal] = useState(0)
   useEffect(() => {
+    if (!Number.isFinite(target)) return
     let start = 0
     const step = target / 60
     const interval = setInterval(() => {
@@ -12,6 +15,7 @@ function AnimatedNumber({ target, suffix = '' }) {
     }, 16)
     return () => clearInterval(interval)
   }, [target])
+  if (!Number.isFinite(target)) return <>—</>
   return <>{val.toLocaleString()}{suffix}</>
 }
 
@@ -98,6 +102,42 @@ const STATS = [
 ]
 
 export default function StatsCards() {
+  const { isLoggedIn } = useAuth()
+  const [real, setReal] = useState(null)
+
+  // Real aggregates from the user's saved predictions. Anonymous visitors
+  // keep the demo figures (clearly labelled below).
+  useEffect(() => {
+    if (!isLoggedIn) { setReal(null); return }
+    let cancelled = false
+    getPredictions({ page: 1, pageSize: 100 }).then((res) => {
+      if (cancelled || !res?.data?.length) return
+      const items = res.data
+      const diseased = items.filter((p) => p.is_healthy === false).length
+      const confs = items.map((p) => Number(p.confidence) || 0)
+      const avgConf = confs.length ? (confs.reduce((a, b) => a + b, 0) / confs.length) * 100 : 0
+      const healthScore = items.length ? Math.round(((items.length - diseased) / items.length) * 1000) / 10 : 0
+      setReal({
+        scans: res.total ?? items.length,
+        diseased,
+        healthScore: healthScore.toFixed(1),
+        avgConf: avgConf.toFixed(1),
+      })
+    })
+    return () => { cancelled = true }
+  }, [isLoggedIn])
+
+  const displayStats = real
+    ? [
+        { ...STATS[0], value: real.healthScore, sub: `${real.scans} scans analysed`, trend: 'From your prediction history', trendUp: true },
+        { ...STATS[1], value: String(real.diseased), sub: 'Diseased scans in history', trend: real.diseased ? 'Review in History' : 'All clear', trendUp: !real.diseased },
+        { ...STATS[2], value: String(real.scans), sub: 'Total AI scans saved', trend: 'Your account', trendUp: true },
+        { ...STATS[3], value: real.avgConf, sub: 'Mean top-1 confidence', trend: 'YOLOv8n-cls', trendUp: true },
+        { ...STATS[4], value: '—', sub: 'Simulated telemetry', trend: 'Mission Control', trendUp: true },
+        { ...STATS[5], value: String(real.scans), sub: 'Prediction records', trend: 'MongoDB Atlas', trendUp: true },
+      ]
+    : STATS
+
   return (
     <section className="py-16 px-6 max-w-7xl mx-auto" id="analytics">
       <div className="mb-10">
@@ -109,13 +149,12 @@ export default function StatsCards() {
           Field Intelligence Dashboard
         </h2>
         <p className="mt-2 text-base" style={{ color: 'var(--muted-foreground)' }}>
-          Live metrics from the ongoing YOLOv8 aerial scan — updated every 8 seconds.
-          <span style={{ opacity: 0.6 }}> Values shown are demo data until scans are saved.</span>
+          {real ? 'Live metrics computed from your saved AI scans.' : 'Values shown are demo data — sign in and run scans to see your real stats.'}
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {STATS.map((stat, i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {displayStats.map((stat, i) => (
           <div
             key={stat.label}
             className="agri-card p-5 relative overflow-hidden group transition-all duration-300"
@@ -139,9 +178,9 @@ export default function StatsCards() {
             </div>
 
             <div className="flex items-end gap-1 mb-1">
-              <span className="font-display text-3xl font-700" style={{ color: 'var(--foreground)', lineHeight: 1 }}>
+              <span className="font-display text-2xl sm:text-3xl font-700 break-all" style={{ color: 'var(--foreground)', lineHeight: 1 }}>
                 <AnimatedNumber target={parseFloat(stat.value)} />
-                {stat.label.includes('Score') || stat.label.includes('Confidence') || stat.label.includes('Battery') ? '%' : stat.label === 'Area Scanned' ? ' ha' : ''}
+                {Number.isFinite(parseFloat(stat.value)) && (stat.label.includes('Score') || stat.label.includes('Confidence') || stat.label.includes('Battery') ? '%' : stat.label === 'Area Scanned' ? ' ha' : '')}
               </span>
             </div>
 

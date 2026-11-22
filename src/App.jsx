@@ -10,6 +10,7 @@ const TeamSection = lazy(() => import('./components/TeamSection'))
 import ErrorBoundary from './components/ErrorBoundary'
 import FieldAnalytics from './components/FieldAnalytics'
 import LoadingScreen from './components/LoadingScreen'
+import SupportedCrops from './components/SupportedCrops'
 import { AuthProvider } from './context/AuthContext'
 import { normalizePrediction } from './services/api'
 import gsap from 'gsap'
@@ -326,6 +327,8 @@ export default function App() {
               <FieldHealthMap />
             </div>
           </section>
+
+          <SupportedCrops />
 
           <section id="team" className="page-section">
             <div className="container-center">

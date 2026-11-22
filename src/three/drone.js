@@ -79,6 +79,73 @@ function tuneMaterial(material) {
  * @param {THREE.PointLight} droneLight light that follows the drone
  * @returns {{ droneGroup: THREE.Group, rotors: THREE.Mesh[] }}
  */
+/**
+ * Persistent detail layer added on top of whatever body renders (GLB model
+ * or procedural fallback): gimbal lens glow, wingtip nav lights, translucent
+ * rotor-blur discs and a belly status LED. Kept outside the placeholder so
+ * the GLB swap never removes it.
+ */
+function buildDroneExtras() {
+  const extras = new THREE.Group()
+  extras.name = 'drone-extras'
+
+  // --- Gimbal camera lens: dark housing ring + emissive glass element ---
+  const lensRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.09, 0.025, 8, 24),
+    new THREE.MeshStandardMaterial({ color: 0x0a0f0a, roughness: 0.4, metalness: 0.8 }),
+  )
+  lensRing.rotation.x = Math.PI / 2
+  lensRing.position.set(0, -0.3, 0.34)
+
+  const lensGlass = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.07, 0.07, 0.02, 20),
+    new THREE.MeshStandardMaterial({
+      color: 0x0b1f3a, roughness: 0.15, metalness: 0.4,
+      emissive: 0x2266ff, emissiveIntensity: 0.9,
+    }),
+  )
+  lensGlass.rotation.x = Math.PI / 2
+  lensGlass.position.set(0, -0.3, 0.345)
+  extras.add(lensRing, lensGlass)
+
+  // --- Wingtip navigation lights (emissive, visible in daylight) ---
+  const navGeo = new THREE.SphereGeometry(0.045, 10, 10)
+  const navMatL = new THREE.MeshBasicMaterial({ color: 0xff3333 })
+  const navMatR = new THREE.MeshBasicMaterial({ color: 0x33ff66 })
+  const navMatT = new THREE.MeshBasicMaterial({ color: 0xffffff })
+  const navL = new THREE.Mesh(navGeo, navMatL)
+  navL.position.set(-1.25, 0.32, 0)
+  const navR = new THREE.Mesh(navGeo, navMatR)
+  navR.position.set(1.25, 0.32, 0)
+  const navT = new THREE.Mesh(navGeo, navMatT)
+  navT.position.set(0, 0.5, 0)
+  extras.add(navL, navR, navT)
+
+  // --- Rotor blur discs: translucent rings that sell the spin at speed ---
+  const blurGeo = new THREE.RingGeometry(0.12, 0.52, 32)
+  const blurMat = new THREE.MeshBasicMaterial({
+    color: 0x9aa5b1, transparent: true, opacity: 0.16,
+    side: THREE.DoubleSide, depthWrite: false,
+  })
+  const rotorXZ = [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]]
+  rotorXZ.forEach(([x, z]) => {
+    const disc = new THREE.Mesh(blurGeo, blurMat)
+    disc.rotation.x = -Math.PI / 2
+    disc.position.set(x, 0.21, z)
+    extras.add(disc)
+  })
+
+  // --- Belly status LED strip ---
+  const led = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.02, 0.06),
+    new THREE.MeshBasicMaterial({ color: 0x22ff88 }),
+  )
+  led.position.set(0, -0.34, 0)
+  extras.add(led)
+
+  return extras
+}
+
 export function createDrone(droneLight) {
   const droneGroup = new THREE.Group()
 
@@ -87,6 +154,10 @@ export function createDrone(droneLight) {
   const placeholder = new THREE.Group()
   placeholder.scale.setScalar(DRONE_SIZE / PLACEHOLDER_SPAN)
   droneGroup.add(placeholder)
+
+  // Detail layer that survives the GLB swap (lens, nav lights, rotor blur).
+  const extras = buildDroneExtras()
+  droneGroup.add(extras)
 
   // Sleek composite titanium-white shell
   const shellMat = new THREE.MeshStandardMaterial({
@@ -205,6 +276,7 @@ export function createDrone(droneLight) {
 
       // Replace the placeholder only once the model is in hand.
       droneGroup.children.slice().forEach((child) => {
+        if (child === extras) return
         droneGroup.remove(child)
         child.traverse((node) => {
           if (node.geometry) node.geometry.dispose()

@@ -375,14 +375,14 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
 
       {/* Capture log: last simulated captures with virtual position/altitude */}
       {mission && mission.captureLog && mission.captureLog.length > 0 && (
-        <div className="absolute bottom-28 left-2 md:bottom-32 md:left-4 glass-panel px-2.5 py-2 z-10 hidden sm:block" style={{ maxWidth: '210px' }}>
-          <div style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)', letterSpacing: '0.1em', marginBottom: 4 }}>
+        <div className="absolute bottom-32 left-2 md:bottom-36 md:left-4 glass-panel px-2.5 py-2 z-10 hidden md:block" style={{ width: '190px', overflow: 'hidden' }}>
+          <div style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)', letterSpacing: '0.1em', marginBottom: 4, whiteSpace: 'nowrap' }}>
             CAPTURE LOG · SIM
           </div>
-          {mission.captureLog.slice(-4).reverse().map((c, i) => (
-            <div key={i} style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--foreground)', lineHeight: 1.5 }}>
+          {mission.captureLog.slice(-3).reverse().map((c, i) => (
+            <div key={i} style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--foreground)', lineHeight: 1.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               <span style={{ color: 'var(--primary)' }}>#{String(mission.captureLog.length - i).padStart(2, '0')}</span>
-              {' '}t+{c.t}s · alt {c.alt}m · x{c.x} z{c.z}
+              {' '}t+{c.t}s · alt {c.alt}m
             </div>
           ))}
         </div>

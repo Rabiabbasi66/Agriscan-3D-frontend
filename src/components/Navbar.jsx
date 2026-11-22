@@ -6,6 +6,7 @@ const LINKS = [
   { label: 'Scanner', href: '#image-scanner' },
   { label: 'History', href: '#prediction-history' },
   { label: 'Analytics', href: '#analytics' },
+  { label: 'Crops', href: '#supported-crops' },
   { label: 'Team', href: '#team' },
 ]
 

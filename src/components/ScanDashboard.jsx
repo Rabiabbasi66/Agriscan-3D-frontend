@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import AlertFeed from './AlertFeed'
 
-const CROP_TYPES = ['Wheat', 'Corn', 'Rice', 'Soybean', 'Cotton', 'Sugarcane']
+// Crops the deployed classifier actually knows (PlantVillage classes).
+// Wheat/Rice/Cotton/Sugarcane are intentionally absent — the model cannot
+// detect them, so offering them would be misleading.
+const CROP_TYPES = ['Tomato', 'Corn', 'Potato', 'Apple', 'Grape', 'Soybean', 'Pepper', 'Cherry']
 // Demo distribution for layout preview only — real per-disease breakdown comes
 // from GET /api/v1/predictions once scans are saved by a signed-in user.
 const DISEASE_TYPES = [
@@ -18,7 +21,7 @@ export default function ScanDashboard({ onConfigChange = null, onRunningChange =
     pattern: 'grid',
     frequency: 8,
   })
-  const [selectedCrop, setSelectedCrop] = useState('Wheat')
+  const [selectedCrop, setSelectedCrop] = useState('Tomato')
   const [scanProgress, setScanProgress] = useState(73)
   const [running, setRunning] = useState(true)
 

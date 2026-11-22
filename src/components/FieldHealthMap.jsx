@@ -11,7 +11,7 @@ function generateField() {
     { cx: 8, cy: 13, r: 2 },
     { cx: 24, cy: 6, r: 1.8 },
   ]
-  const diseaseNames = ['Leaf Blight', 'Powdery Mildew', 'Root Rot', 'Wheat Rust']
+  const diseaseNames = ['Early Blight', 'Powdery Mildew', 'Late Blight', 'Leaf Mold']
 
   for (let row = 0; row < FIELD_ROWS; row++) {
     const cols = []

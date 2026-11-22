@@ -4,9 +4,19 @@
 // no second classifier and no mock mode: if the backend cannot answer, the scan
 // fails visibly rather than silently using different weights.
 //
-// VITE_API_BASE_URL configures the backend origin; an unset or malformed value
-// falls back to localhost for development.
+// VITE_API_BASE_URL configures the backend origin. In development an unset or
+// malformed value falls back to localhost; in a production build it is a hard
+// error — silently pointing a deployed app at localhost helps nobody.
 const envApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim()
+const isProdBuild = Boolean(import.meta.env.PROD)
+
+if (isProdBuild && !/^https?:\/\//.test(envApiBaseUrl)) {
+  throw new Error(
+    'VITE_API_BASE_URL is not set. Production builds must point at the ' +
+    'deployed FastAPI backend (e.g. https://your-api.onrender.com).'
+  )
+}
+
 const API_BASE_URL = /^https?:\/\//.test(envApiBaseUrl)
   ? envApiBaseUrl
   : 'http://localhost:8000'
