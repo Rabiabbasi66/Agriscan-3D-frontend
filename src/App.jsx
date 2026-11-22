@@ -136,15 +136,22 @@ function Footer() {
           <div className="font-display text-xl font-700 tracking-wider mb-1" style={{ color: 'var(--foreground)' }}>
             AGRI<span style={{ color: 'var(--primary)' }}>SCAN</span> <span style={{ color: 'var(--muted-foreground)', fontSize: '14px' }}>3D</span>
           </div>
-          <p style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
+          <p className="max-w-md" style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.06em', lineHeight: 1.6, overflowWrap: 'break-word' }}>
             Final Year Project · AgriScan 3D: WebGPU-Based Virtual Drone Crop Mapping with AI-Powered Disease Detection
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-4 md:gap-8">
-          {['Overview', 'Scanner', 'History', 'Analytics', 'Team'].map((l) => (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 md:gap-8">
+          {[
+            ['Overview', '#overview'],
+            ['Scanner', '#image-scanner'],
+            ['History', '#prediction-history'],
+            ['Analytics', '#analytics'],
+            ['Crops', '#supported-crops'],
+            ['Team', '#team'],
+          ].map(([l, href]) => (
             <a
               key={l}
-              href={`#${l.toLowerCase().replace(' ', '-')}`}
+              href={href}
               style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.06em', textTransform: 'uppercase' }}
               className="hover:text-green-500 transition-colors"
             >
