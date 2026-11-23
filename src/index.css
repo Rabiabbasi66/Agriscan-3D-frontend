@@ -34,6 +34,23 @@
   --gold-light: #fcd34d;
   --slate: #0f172a;
   --slate-light: #1e293b;
+  /* Neon accents — dark theme values */
+  --neon-green: #39ff14;
+  --neon-green-dim: #1c3a1c;
+  --neon-red: #ff3030;
+  --neon-orange: #ff9020;
+  --neon-yellow: #ffcc33;
+  --neon-gold: #fbbf24;
+  --neon-gold-light: #fcd34d;
+  --on-neon: #060d06;
+  --icon-muted: #6b9b6b;
+  /* Terminal-green palette — dark theme */
+  --term-bg: #122012;
+  --term-bg-deep: #0d1a0d;
+  --term-text: #e8f5e8;
+  --term-text-mid: #a8d4a8;
+  --term-text-soft: #cfe8cf;
+  --neon-amber: #ffaa20;
 }
 
 :root.light {
@@ -64,6 +81,23 @@
   --gold-light: #fbbf24;
   --slate: #0f172a;
   --slate-light: #1e293b;
+  /* Neon accents — light theme: readable, deeper shades */
+  --neon-green: #16a34a;
+  --neon-green-dim: #86efac;
+  --neon-red: #dc2626;
+  --neon-orange: #ea580c;
+  --neon-yellow: #a16207;
+  --neon-gold: #b45309;
+  --neon-gold-light: #d97706;
+  --on-neon: #ffffff;
+  --icon-muted: #64748b;
+  /* Terminal-green palette — light theme (readable shades) */
+  --term-bg: #f0fdf4;
+  --term-bg-deep: #dcfce7;
+  --term-text: #0f172a;
+  --term-text-mid: #15803d;
+  --term-text-soft: #166534;
+  --neon-amber: #d97706;
 }
 
 /* ═══════════════════════════════════════════════════════════

@@ -9,8 +9,8 @@ import AuthPanel from './AuthPanel';
 const PAGE_SIZE = 5;
 
 const statusTone = (isHealthy) => (isHealthy
-  ? { color: '#39ff14', border: 'rgba(57,255,20,0.3)', bg: 'rgba(57,255,20,0.1)' }
-  : { color: '#ff3030', border: 'rgba(255,48,48,0.3)', bg: 'rgba(255,48,48,0.1)' });
+  ? { color: 'var(--neon-green)', border: 'rgba(57,255,20,0.3)', bg: 'rgba(57,255,20,0.1)' }
+  : { color: 'var(--neon-red)', border: 'rgba(255,48,48,0.3)', bg: 'rgba(255,48,48,0.1)' });
 
 const formatDate = (iso) => {
   const d = new Date(iso);
@@ -26,13 +26,13 @@ function Detail({ label, value, mono = false }) {
     <div className="flex justify-between sm:justify-start sm:gap-3">
       <span
         className="text-xs shrink-0"
-        style={{ color: '#6b9b6b', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.06em' }}
+        style={{ color: 'var(--icon-muted)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.06em' }}
       >
         {label.toUpperCase()}
       </span>
       <span
         className="text-sm text-right sm:text-left break-all"
-        style={{ color: '#a8d4a8', ...(mono ? { fontFamily: 'JetBrains Mono, monospace' } : {}) }}
+        style={{ color: 'var(--term-text-mid)', ...(mono ? { fontFamily: 'JetBrains Mono, monospace' } : {}) }}
       >
         {value || '—'}
       </span>
@@ -45,7 +45,7 @@ function HistoryRow({ item, details, onToggle, expanded, loadingDetails }) {
   // `detected` field.
   const undetected = item.detected === false
   const tone = undetected
-    ? { color: '#6b9b6b', border: 'rgba(107,155,107,0.3)', bg: 'rgba(107,155,107,0.1)' }
+    ? { color: 'var(--icon-muted)', border: 'rgba(107,155,107,0.3)', bg: 'rgba(107,155,107,0.1)' }
     : statusTone(item.is_healthy);
 
   return (
@@ -53,25 +53,25 @@ function HistoryRow({ item, details, onToggle, expanded, loadingDetails }) {
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-display font-700" style={{ color: '#e8f5e8' }}>
+            <span className="font-display font-700" style={{ color: 'var(--term-text)' }}>
               {item.crop || '—'}
             </span>
-            <span className="text-xs" style={{ color: '#6b9b6b' }}>·</span>
-            <span className="text-sm" style={{ color: '#a8d4a8' }}>{item.disease || '—'}</span>
+            <span className="text-xs" style={{ color: 'var(--icon-muted)' }}>·</span>
+            <span className="text-sm" style={{ color: 'var(--term-text-mid)' }}>{item.disease || '—'}</span>
           </div>
-          <div className="text-xs mt-1" style={{ color: '#6b9b6b', fontFamily: 'JetBrains Mono, monospace' }}>
+          <div className="text-xs mt-1" style={{ color: 'var(--icon-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
             {formatDate(item.created_at)}
           </div>
         </div>
 
         <div className="flex items-center gap-3 sm:gap-4 shrink-0">
           <div className="text-right">
-            <div className="font-display font-700" style={{ color: '#39ff14' }}>
+            <div className="font-display font-700" style={{ color: 'var(--neon-green)' }}>
               {typeof item.confidence === 'number' ? `${item.confidence.toFixed(1)}%` : '—'}
             </div>
             <div
               className="text-[10px]"
-              style={{ color: '#6b9b6b', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.08em' }}
+              style={{ color: 'var(--icon-muted)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.08em' }}
             >
               CONF
             </div>
@@ -94,7 +94,7 @@ function HistoryRow({ item, details, onToggle, expanded, loadingDetails }) {
             type="button"
             onClick={() => onToggle(item.id)}
             className="px-3 py-1.5 rounded text-xs font-600 transition-all duration-200"
-            style={{ border: '1px solid rgba(57,255,20,0.3)', color: '#39ff14', letterSpacing: '0.06em' }}
+            style={{ border: '1px solid rgba(57,255,20,0.3)', color: 'var(--neon-green)', letterSpacing: '0.06em' }}
           >
             {expanded ? 'HIDE' : 'VIEW DETAILS'}
           </button>
@@ -102,9 +102,9 @@ function HistoryRow({ item, details, onToggle, expanded, loadingDetails }) {
       </div>
 
       {expanded && (
-        <div className="px-4 pb-4 pt-1 border-t" style={{ borderColor: '#1c3a1c' }}>
+        <div className="px-4 pb-4 pt-1 border-t" style={{ borderColor: 'var(--neon-green-dim)' }}>
           {loadingDetails ? (
-            <p className="text-sm" style={{ color: '#6b9b6b' }}>Loading details…</p>
+            <p className="text-sm" style={{ color: 'var(--icon-muted)' }}>Loading details…</p>
           ) : details ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
               <Detail label="Crop" value={details.crop} />
@@ -124,7 +124,7 @@ function HistoryRow({ item, details, onToggle, expanded, loadingDetails }) {
               />
             </div>
           ) : (
-            <p className="text-sm" style={{ color: '#ff9020' }}>
+            <p className="text-sm" style={{ color: 'var(--neon-orange)' }}>
               Details could not be loaded. Try again later.
             </p>
           )}
@@ -185,7 +185,7 @@ export default function PredictionHistory() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        <h2 className="font-display font-700 tracking-widest" style={{ fontSize: '28px', color: '#e8f5e8' }}>
+        <h2 className="font-display font-700 tracking-widest" style={{ fontSize: '28px', color: 'var(--term-text)' }}>
           PREDICTION HISTORY
         </h2>
         {pagination && (
@@ -193,7 +193,7 @@ export default function PredictionHistory() {
             className="px-2 py-0.5 rounded text-[10px]"
             style={{
               border: '1px solid rgba(57,255,20,0.3)',
-              color: '#39ff14',
+              color: 'var(--neon-green)',
               background: 'rgba(57,255,20,0.1)',
               fontFamily: 'JetBrains Mono, monospace',
               letterSpacing: '0.08em',
@@ -208,29 +208,29 @@ export default function PredictionHistory() {
 
       {status === 'signedOut' && (
         <div className="agri-card p-6 text-center">
-          <p className="font-display font-700 mb-1" style={{ color: '#e8f5e8' }}>
+          <p className="font-display font-700 mb-1" style={{ color: 'var(--term-text)' }}>
             Sign in to view your prediction history.
           </p>
-          <p className="text-sm" style={{ color: '#6b9b6b' }}>
+          <p className="text-sm" style={{ color: 'var(--icon-muted)' }}>
             Your scans are saved and listed here once you are logged in.
           </p>
         </div>
       )}
 
       {status === 'loading' && (
-        <p className="text-sm" style={{ color: '#6b9b6b' }}>Loading history…</p>
+        <p className="text-sm" style={{ color: 'var(--icon-muted)' }}>Loading history…</p>
       )}
 
       {status === 'error' && (
         <div className="agri-card p-4">
-          <p className="text-sm" style={{ color: '#ff9020' }}>
+          <p className="text-sm" style={{ color: 'var(--neon-orange)' }}>
             Could not load prediction history. Please try again later.
           </p>
           <button
             type="button"
             onClick={() => loadPage(page)}
             className="mt-3 px-3 py-1.5 rounded text-xs font-600"
-            style={{ border: '1px solid rgba(57,255,20,0.3)', color: '#39ff14' }}
+            style={{ border: '1px solid rgba(57,255,20,0.3)', color: 'var(--neon-green)' }}
           >
             RETRY
           </button>
@@ -241,17 +241,17 @@ export default function PredictionHistory() {
         <>
           {history.length === 0 ? (
             <div className="agri-card p-6 text-center">
-              <p className="font-display font-700 mb-1" style={{ color: '#e8f5e8' }}>
+              <p className="font-display font-700 mb-1" style={{ color: 'var(--term-text)' }}>
                 No predictions yet.
               </p>
-              <p className="text-sm" style={{ color: '#6b9b6b' }}>
+              <p className="text-sm" style={{ color: 'var(--icon-muted)' }}>
                 Run your first crop scan to see results here.
               </p>
               <button
                 type="button"
                 onClick={() => document.getElementById('image-scanner')?.scrollIntoView({ behavior: 'smooth' })}
                 className="mt-4 px-4 py-2 rounded font-display font-700 tracking-widest text-xs"
-                style={{ background: '#39ff14', color: '#060d06', letterSpacing: '0.1em' }}
+                style={{ background: 'var(--neon-green)', color: 'var(--on-neon)', letterSpacing: '0.1em' }}
               >
                 START SCAN
               </button>
@@ -277,13 +277,13 @@ export default function PredictionHistory() {
                     className="px-3 py-1.5 rounded text-xs font-600"
                     style={{
                       border: '1px solid rgba(57,255,20,0.3)',
-                      color: '#39ff14',
+                      color: 'var(--neon-green)',
                       opacity: page <= 1 ? 0.4 : 1,
                     }}
                   >
                     ← PREV
                   </button>
-                  <span className="text-xs" style={{ color: '#6b9b6b', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <span className="text-xs" style={{ color: 'var(--icon-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
                     PAGE {page} / {pagination.total_pages}
                   </span>
                   <button
@@ -293,7 +293,7 @@ export default function PredictionHistory() {
                     className="px-3 py-1.5 rounded text-xs font-600"
                     style={{
                       border: '1px solid rgba(57,255,20,0.3)',
-                      color: '#39ff14',
+                      color: 'var(--neon-green)',
                       opacity: page >= pagination.total_pages ? 0.4 : 1,
                     }}
                   >

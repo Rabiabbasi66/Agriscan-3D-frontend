@@ -17,9 +17,9 @@ const NEW_ALERTS = [
 ]
 
 const SEVERITY_CONFIG = {
-  high: { color: '#ff3030', bg: 'rgba(255,48,48,0.1)', label: 'HIGH' },
-  medium: { color: '#ff9020', bg: 'rgba(255,144,32,0.1)', label: 'MED' },
-  low: { color: '#39ff14', bg: 'rgba(57,255,20,0.1)', label: 'LOW' },
+  high: { color: 'var(--neon-red)', bg: 'rgba(255,48,48,0.1)', label: 'HIGH' },
+  medium: { color: 'var(--neon-orange)', bg: 'rgba(255,144,32,0.1)', label: 'MED' },
+  low: { color: 'var(--neon-green)', bg: 'rgba(57,255,20,0.1)', label: 'LOW' },
 }
 
 function getNow() {
@@ -52,7 +52,7 @@ export default function AlertFeed() {
     <div className="agri-card h-full flex flex-col" id="detections">
       <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full animate-blink" style={{ background: '#ff3030' }} />
+          <div className="w-2 h-2 rounded-full animate-blink" style={{ background: 'var(--neon-red)' }} />
           <span className="font-display text-base font-600 tracking-wider" style={{ color: 'var(--foreground)' }}>
             DETECTION FEED
           </span>

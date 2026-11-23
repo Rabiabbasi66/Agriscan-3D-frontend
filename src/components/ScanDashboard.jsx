@@ -181,10 +181,7 @@ export default function ScanDashboard({ onConfigChange = null, onRunningChange =
                 <circle cx="50" cy="50" r="42" fill="none" stroke="var(--secondary)" strokeWidth="6" />
                 <circle
                   cx="50" cy="50" r="42" fill="none"
-                  stroke="#39ff14" strokeWidth="6"
-                  strokeLinecap="round"
-                  strokeDasharray={`${2 * Math.PI * 42 * scanProgress / 100} ${2 * Math.PI * 42}`}
-                  style={{ transition: 'stroke-dasharray 0.3s ease', filter: 'drop-shadow(0 0 6px rgba(57,255,20,0.5))' }}
+                  style={{ stroke: 'var(--neon-green)', strokeWidth: 6, strokeLinecap: 'round', strokeDasharray: `${2 * Math.PI * 42 * scanProgress / 100} ${2 * Math.PI * 42}`, transition: 'stroke-dasharray 0.3s ease', filter: 'drop-shadow(0 0 6px rgba(57,255,20,0.5))' }}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -215,7 +212,7 @@ export default function ScanDashboard({ onConfigChange = null, onRunningChange =
                     className={`health-bar-fill ${dt.name !== 'Healthy' && dt.pct < 50 ? 'diseased' : ''}`}
                     style={{
                       width: `${dt.pct}%`,
-                      background: dt.name === 'Healthy' ? 'linear-gradient(90deg, #39ff14, #22c55e)' : 'linear-gradient(90deg, #ff3030, #ef4444)',
+                      background: dt.name === 'Healthy' ? 'linear-gradient(90deg, var(--neon-green), #22c55e)' : 'linear-gradient(90deg, var(--neon-red), #ef4444)',
                     }}
                   />
                 </div>

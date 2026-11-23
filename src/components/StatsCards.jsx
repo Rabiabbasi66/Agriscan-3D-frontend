@@ -26,7 +26,7 @@ const STATS = [
     sub: 'Overall crop vitality index',
     trend: '+2.4% vs last scan',
     trendUp: true,
-    accent: '#39ff14',
+    accent: 'var(--neon-green)',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l-2 2m2-2 2 2M3 12h18" />
@@ -39,7 +39,7 @@ const STATS = [
     sub: 'Across 3 field sectors',
     trend: '+1 since yesterday',
     trendUp: false,
-    accent: '#ff3030',
+    accent: 'var(--neon-red)',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <circle cx="12" cy="12" r="9" strokeWidth={1.5} />
@@ -53,7 +53,7 @@ const STATS = [
     sub: 'Hectares this session',
     trend: '93% of total field',
     trendUp: true,
-    accent: '#39ff14',
+    accent: 'var(--neon-green)',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
@@ -79,7 +79,7 @@ const STATS = [
     sub: 'Estimated 41 min remaining',
     trend: 'Charging in 8 hrs',
     trendUp: true,
-    accent: '#facc15',
+    accent: 'var(--neon-yellow)',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -92,7 +92,7 @@ const STATS = [
     sub: 'This month',
     trend: '+6 vs last month',
     trendUp: true,
-    accent: '#39ff14',
+    accent: 'var(--neon-green)',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -189,10 +189,10 @@ export default function StatsCards() {
             </p>
 
             <div className="flex items-center gap-1.5">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: stat.trendUp ? '#39ff14' : '#ff3030' }}>
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: stat.trendUp ? 'var(--neon-green)' : 'var(--neon-red)' }}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.trendUp ? 'M5 10l7-7m0 0l7 7m-7-7v18' : 'M19 14l-7 7m0 0l-7-7m7 7V3'} />
               </svg>
-              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: stat.trendUp ? '#39ff14' : '#ff3030', letterSpacing: '0.05em' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: stat.trendUp ? 'var(--neon-green)' : 'var(--neon-red)', letterSpacing: '0.05em' }}>
                 {stat.trend}
               </span>
             </div>

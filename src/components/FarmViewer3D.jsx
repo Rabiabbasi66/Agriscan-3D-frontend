@@ -192,7 +192,7 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
     return (
       <div className="relative w-full h-full flex items-center justify-center" id="overview">
         <div className="agri-card p-8 text-center max-w-sm" role="alert">
-          <div style={{ fontFamily: 'monospace', fontSize: '11px', letterSpacing: '0.1em', color: '#ff6020', textTransform: 'uppercase', marginBottom: 8 }}>
+          <div style={{ fontFamily: 'monospace', fontSize: '11px', letterSpacing: '0.1em', color: 'var(--neon-orange)', textTransform: 'uppercase', marginBottom: 8 }}>
             WebGL unavailable
           </div>
           <div style={{ color: 'var(--foreground)', fontSize: '14px', marginBottom: 6 }}>
@@ -218,7 +218,7 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
       />
 
       {[['top-3 left-3', 'border-t border-l'], ['top-3 right-3', 'border-t border-r'], ['bottom-3 left-3', 'border-b border-l'], ['bottom-3 right-3', 'border-b border-r']].map(([pos, brd], i) => (
-        <div key={i} className={`absolute ${pos} w-8 h-8 ${brd} pointer-events-none`} style={{ borderColor: '#39ff14', opacity: 0.6 }} />
+        <div key={i} className={`absolute ${pos} w-8 h-8 ${brd} pointer-events-none`} style={{ borderColor: 'var(--neon-green)', opacity: 0.6 }} />
       ))}
 
       {/* Top Status Bar: Responsive Flex */}
@@ -248,7 +248,7 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
           <>
             <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden md:block pointer-events-auto">
               <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
-                BAT: <span style={{ color: mission.battery > 30 ? 'var(--foreground)' : '#ff6020' }}>{mission.battery.toFixed(0)}%</span>
+                BAT: <span style={{ color: mission.battery > 30 ? 'var(--foreground)' : 'var(--neon-orange)' }}>{mission.battery.toFixed(0)}%</span>
               </span>
             </div>
             <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 hidden md:block pointer-events-auto">
@@ -283,7 +283,7 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
             </div>
             {mission.rtk && (
               <div className="glass-panel px-2.5 py-1 md:px-3 md:py-1.5 pointer-events-auto" style={{ borderColor: 'rgba(255,96,32,0.5)' }}>
-                <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#ff6020', letterSpacing: '0.06em' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--neon-orange)', letterSpacing: '0.06em' }}>
                   ⏏ RTK
                 </span>
               </div>
@@ -390,7 +390,7 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
 
       {/* Bottom Left Legend: Compact on mobile */}
       <div className="absolute bottom-3 left-2 md:bottom-4 md:left-4 flex flex-col gap-1 z-10">
-        {[{ color: '#ff2020', label: 'High Severity' }, { color: '#ff6020', label: 'Medium' }, { color: '#ffaa20', label: 'Low Severity' }].map(item => (
+        {[{ color: 'var(--neon-red)', label: 'High Severity' }, { color: 'var(--neon-orange)', label: 'Medium' }, { color: 'var(--neon-amber)', label: 'Low Severity' }].map(item => (
           <div key={item.label} className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full border" style={{ borderColor: item.color, background: item.color + '44' }} />
             <span style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)', letterSpacing: '0.05em' }}>{item.label}</span>
@@ -430,8 +430,8 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
       {selectedMeta && (
         <div className="absolute top-16 left-2 md:top-20 md:left-4 glass-panel p-2.5 md:p-3 max-w-48 md:max-w-56 z-10" style={{ borderColor: 'rgba(255,32,32,0.4)' }}>
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-2 h-2 rounded-full animate-blink shrink-0" style={{ background: '#ff3030' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#ff3030', letterSpacing: '0.08em' }}>
+            <div className="w-2 h-2 rounded-full animate-blink shrink-0" style={{ background: 'var(--neon-red)' }} />
+            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--neon-red)', letterSpacing: '0.08em' }}>
               DISEASE DETECTED
             </span>
           </div>
@@ -446,7 +446,7 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
           </div>
           {selectedMeta.severity && (
             <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--muted-foreground)' }}>
-              TIER: <span style={{ color: selectedMeta.severity === 'high' ? '#ff3030' : selectedMeta.severity === 'medium' ? '#ff9020' : 'var(--primary)' }}>{String(selectedMeta.severity).toUpperCase()}</span>
+              TIER: <span style={{ color: selectedMeta.severity === 'high' ? 'var(--neon-red)' : selectedMeta.severity === 'medium' ? 'var(--neon-orange)' : 'var(--primary)' }}>{String(selectedMeta.severity).toUpperCase()}</span>
             </div>
           )}
           <div style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)', marginTop: 4, opacity: 0.8 }}>
@@ -458,13 +458,13 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
       {/* Top Left Disease Zones Indicator */}
       <div className="absolute top-[7.5rem] left-2 sm:top-20 md:top-4 md:left-4 glass-panel p-2 md:p-2.5 max-w-36 md:max-w-44 z-10">
         <div className="flex items-center gap-1.5 mb-1">
-          <div className="w-1.5 h-1.5 rounded-full animate-blink shrink-0" style={{ background: '#ff3030' }} />
-          <span style={{ fontFamily: 'monospace', fontSize: '9px', color: '#ff3030', letterSpacing: '0.06em' }}>{diseaseCount} ZONES DETECTED</span>
+          <div className="w-1.5 h-1.5 rounded-full animate-blink shrink-0" style={{ background: 'var(--neon-red)' }} />
+          <span style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--neon-red)', letterSpacing: '0.06em' }}>{diseaseCount} ZONES DETECTED</span>
         </div>
         {DISEASE_ZONES.slice(0, 2).map(z => (
           <div key={z.label} className="flex items-center justify-between mt-0.5">
             <span style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)' }}>{z.label}</span>
-            <span style={{ fontFamily: 'monospace', fontSize: '9px', color: z.severity === 'high' ? '#ff2020' : '#ff6020', letterSpacing: '0.04em' }}>{z.severity.toUpperCase()}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: '9px', color: z.severity === 'high' ? 'var(--neon-red)' : 'var(--neon-orange)', letterSpacing: '0.04em' }}>{z.severity.toUpperCase()}</span>
           </div>
         ))}
       </div>

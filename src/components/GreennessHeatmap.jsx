@@ -66,7 +66,7 @@ export default function GreennessHeatmap({ src }) {
           Vegetation Greenness Index (ExG)
         </span>
         {mean != null && (
-          <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--neon-green)' }}>
             mean {mean.toFixed(3)}
           </span>
         )}
@@ -74,7 +74,7 @@ export default function GreennessHeatmap({ src }) {
       <canvas ref={canvasRef} className="w-full h-auto block rounded" style={{ border: '1px solid var(--border)' }} />
       <div className="flex items-center gap-2 mt-2">
         <span style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)' }}>low</span>
-        <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'linear-gradient(90deg,#ff3333,#ffcc33,#39ff14)' }} />
+        <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'linear-gradient(90deg,#ff3333,var(--neon-yellow),var(--neon-green))' }} />
         <span style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)' }}>high</span>
       </div>
       <p style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--muted-foreground)', marginTop: 6, lineHeight: 1.5 }}>

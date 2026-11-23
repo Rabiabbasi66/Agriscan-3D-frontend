@@ -7,7 +7,7 @@ export default function LoadingScreen({ visible = true, progress = 0 }) {
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: '#060d06',
+        background: 'var(--on-neon)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -34,7 +34,7 @@ export default function LoadingScreen({ visible = true, progress = 0 }) {
             inset: 4,
             borderRadius: '50%',
             border: '2px solid transparent',
-            borderTopColor: '#39ff14',
+            borderTopColor: 'var(--neon-green)',
             animation: 'loader-spin 1s linear infinite',
           }}
         />
@@ -59,7 +59,7 @@ export default function LoadingScreen({ visible = true, progress = 0 }) {
             animation: 'loader-hover 2.4s ease-in-out infinite',
           }}
         >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#39ff14" strokeWidth="1.6">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" strokeWidth="1.6" style={{ stroke: 'var(--neon-green)' }}>
             <circle cx="12" cy="12" r="3" />
             <line x1="12" y1="2" x2="12" y2="7" />
             <line x1="12" y1="17" x2="12" y2="22" />
@@ -81,19 +81,19 @@ export default function LoadingScreen({ visible = true, progress = 0 }) {
             fontSize: 'clamp(28px, 6vw, 36px)',
             fontWeight: 700,
             letterSpacing: '0.12em',
-            color: '#e8f5e8',
+            color: 'var(--term-text)',
             margin: 0,
             lineHeight: 1.2,
           }}
         >
-          AGRI<span style={{ color: '#39ff14' }}>SCAN</span>{' '}
-          <span style={{ color: '#39ff14', textShadow: '0 0 25px rgba(57,255,20,0.6)' }}>3D</span>
+          AGRI<span style={{ color: 'var(--neon-green)' }}>SCAN</span>{' '}
+          <span style={{ color: 'var(--neon-green)', textShadow: '0 0 25px rgba(57,255,20,0.6)' }}>3D</span>
         </h1>
         <p
           style={{
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: 'clamp(9px, 2.4vw, 11px)',
-            color: '#6b9b6b',
+            color: 'var(--icon-muted)',
             letterSpacing: '0.12em',
             marginTop: 10,
             textTransform: 'uppercase',
@@ -121,7 +121,7 @@ export default function LoadingScreen({ visible = true, progress = 0 }) {
             style={{
               height: '100%',
               width: `${progress}%`,
-              background: 'linear-gradient(90deg, #39ff14, #22c55e)',
+              background: 'linear-gradient(90deg, var(--neon-green), #22c55e)',
               borderRadius: 3,
               transition: 'width 0.25s ease-out',
               boxShadow: '0 0 10px rgba(57,255,20,0.5)',
@@ -133,7 +133,7 @@ export default function LoadingScreen({ visible = true, progress = 0 }) {
             style={{
               fontFamily: "'JetBrains Mono', monospace",
               fontSize: '10px',
-              color: '#6b9b6b',
+              color: 'var(--icon-muted)',
               letterSpacing: '0.08em',
             }}
           >
@@ -143,7 +143,7 @@ export default function LoadingScreen({ visible = true, progress = 0 }) {
             style={{
               fontFamily: "'JetBrains Mono', monospace",
               fontSize: '10px',
-              color: '#39ff14',
+              color: 'var(--neon-green)',
               fontWeight: 600,
             }}
           >

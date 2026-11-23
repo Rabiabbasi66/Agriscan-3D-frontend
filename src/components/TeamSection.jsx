@@ -21,7 +21,7 @@ const TEAM = [
   ],
 
   avatar: 'TY',
-  color: '#fbbf24',
+  color: 'var(--neon-gold)',
 
   tasks: [
     'React UI Development',

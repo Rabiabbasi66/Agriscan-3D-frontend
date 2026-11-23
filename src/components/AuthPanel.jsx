@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 const inputStyle = {
-  background: '#122012',
-  border: '1px solid #1c3a1c',
-  color: '#e8f5e8',
+  background: 'var(--term-bg)',
+  border: '1px solid var(--neon-green-dim)',
+  color: 'var(--term-text)',
   borderRadius: '6px',
   padding: '8px 10px',
   fontSize: '13px',
@@ -45,7 +45,7 @@ export default function AuthPanel() {
 
   if (isRestoring) {
     return (
-      <p className="text-sm mb-4" style={{ color: '#6b9b6b', fontFamily: 'JetBrains Mono, monospace' }}>
+      <p className="text-sm mb-4" style={{ color: 'var(--icon-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
         Restoring session…
       </p>
     );
@@ -58,7 +58,7 @@ export default function AuthPanel() {
           className="px-2 py-0.5 rounded text-[10px]"
           style={{
             border: '1px solid rgba(57,255,20,0.3)',
-            color: '#39ff14',
+            color: 'var(--neon-green)',
             background: 'rgba(57,255,20,0.1)',
             fontFamily: 'JetBrains Mono, monospace',
             letterSpacing: '0.08em',
@@ -70,7 +70,7 @@ export default function AuthPanel() {
           type="button"
           onClick={logout}
           className="px-3 py-1.5 rounded text-xs font-600 transition-all duration-200"
-          style={{ border: '1px solid rgba(255,48,48,0.3)', color: '#ff3030', letterSpacing: '0.06em' }}
+          style={{ border: '1px solid rgba(255,48,48,0.3)', color: 'var(--neon-red)', letterSpacing: '0.06em' }}
         >
           LOGOUT
         </button>
@@ -87,8 +87,8 @@ export default function AuthPanel() {
           className="px-3 py-1.5 rounded text-xs font-600"
           style={{
             border: '1px solid rgba(57,255,20,0.3)',
-            color: mode === 'login' ? '#060d06' : '#39ff14',
-            background: mode === 'login' ? '#39ff14' : 'transparent',
+            color: mode === 'login' ? 'var(--on-neon)' : 'var(--neon-green)',
+            background: mode === 'login' ? 'var(--neon-green)' : 'transparent',
             letterSpacing: '0.06em',
           }}
         >
@@ -100,8 +100,8 @@ export default function AuthPanel() {
           className="px-3 py-1.5 rounded text-xs font-600"
           style={{
             border: '1px solid rgba(57,255,20,0.3)',
-            color: mode === 'register' ? '#060d06' : '#39ff14',
-            background: mode === 'register' ? '#39ff14' : 'transparent',
+            color: mode === 'register' ? 'var(--on-neon)' : 'var(--neon-green)',
+            background: mode === 'register' ? 'var(--neon-green)' : 'transparent',
             letterSpacing: '0.06em',
           }}
         >
@@ -152,7 +152,7 @@ export default function AuthPanel() {
       </div>
 
       {error && (
-        <p className="text-sm mt-2" style={{ color: '#ff9020' }}>{error}</p>
+        <p className="text-sm mt-2" style={{ color: 'var(--neon-orange)' }}>{error}</p>
       )}
 
       <button
@@ -160,8 +160,8 @@ export default function AuthPanel() {
         disabled={busy}
         className="mt-3 px-4 py-2 rounded font-display font-700 tracking-widest text-xs"
         style={{
-          background: '#39ff14',
-          color: '#060d06',
+          background: 'var(--neon-green)',
+          color: 'var(--on-neon)',
           letterSpacing: '0.1em',
           opacity: busy ? 0.6 : 1,
         }}
@@ -169,7 +169,7 @@ export default function AuthPanel() {
         {busy ? 'PLEASE WAIT…' : mode === 'login' ? 'LOGIN' : 'CREATE ACCOUNT'}
       </button>
 
-      <p className="text-xs mt-2" style={{ color: '#6b9b6b' }}>
+      <p className="text-xs mt-2" style={{ color: 'var(--icon-muted)' }}>
         Sign in so your scans are saved to your prediction history.
       </p>
     </form>

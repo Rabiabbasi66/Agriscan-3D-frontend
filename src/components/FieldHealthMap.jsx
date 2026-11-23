@@ -3,6 +3,15 @@ import React, { useEffect, useRef, useState } from 'react'
 const FIELD_ROWS = 18
 const FIELD_COLS = 28
 
+function neonGreen() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--neon-green').trim() || '#39ff14'
+}
+
+function cssVar(name, fallback) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return v || fallback
+}
+
 function generateField() {
   const rows = []
   const diseasedPatches = [
@@ -67,18 +76,19 @@ function drawFieldLayer(ctx, W, H, field) {
   })
 
   const patches = [
-    { cx: 5, cy: 4, r: 3, color: '#ff2020' },
-    { cx: 20, cy: 10, r: 2.5, color: '#ff6020' },
-    { cx: 8, cy: 13, r: 2, color: '#ff2020' },
-    { cx: 24, cy: 6, r: 1.8, color: '#ffaa20' },
+    { cx: 5, cy: 4, r: 3, colorVar: '--neon-red', fallback: '#ff2020' },
+    { cx: 20, cy: 10, r: 2.5, colorVar: '--neon-orange', fallback: '#ff6020' },
+    { cx: 8, cy: 13, r: 2, colorVar: '--neon-red', fallback: '#ff2020' },
+    { cx: 24, cy: 6, r: 1.8, colorVar: '--neon-amber', fallback: '#ffaa20' },
   ]
   patches.forEach(p => {
+    const color = cssVar(p.colorVar, p.fallback)
     const px = (p.cx + 0.5) * cellW
     const py = (p.cy + 0.5) * cellH
     const rx = p.r * cellW
     const ry = p.r * cellH
 
-    ctx.strokeStyle = p.color
+    ctx.strokeStyle = color
     ctx.lineWidth = 1.5
     ctx.globalAlpha = 0.9
     ctx.beginPath()
@@ -95,7 +105,7 @@ function drawFieldLayer(ctx, W, H, field) {
   })
 
   ctx.globalAlpha = 0.06
-  ctx.strokeStyle = '#39ff14'
+  ctx.strokeStyle = neonGreen()
   ctx.lineWidth = 0.5
   for (let c = 0; c <= FIELD_COLS; c++) {
     ctx.beginPath()
@@ -126,12 +136,12 @@ function drawDrone(ctx, W, H, col, row) {
   ctx.arc(dx, dy, cellW * 2.5, 0, Math.PI * 2)
   ctx.stroke()
 
-  ctx.fillStyle = '#39ff14'
+  ctx.fillStyle = neonGreen()
   ctx.beginPath()
   ctx.arc(dx, dy, 4, 0, Math.PI * 2)
   ctx.fill()
 
-  ctx.strokeStyle = '#39ff14'
+  ctx.strokeStyle = neonGreen()
   ctx.lineWidth = 1
   ctx.globalAlpha = 0.7
   ctx.beginPath()
@@ -223,18 +233,18 @@ export default function FieldHealthMap() {
     <section className="py-16 px-6 max-w-7xl mx-auto" id="field-map">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-6 h-px" style={{ background: '#39ff14' }} />
-          <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#39ff14', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Field Map</span>
+          <div className="w-6 h-px" style={{ background: 'var(--neon-green)' }} />
+          <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--neon-green)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Field Map</span>
         </div>
-        <h2 className="font-display text-4xl font-700 tracking-wide" style={{ color: '#e8f5e8' }}>
+        <h2 className="font-display text-4xl font-700 tracking-wide" style={{ color: 'var(--term-text)' }}>
           2D Crop Health Overview
         </h2>
-        <p className="mt-2" style={{ color: '#6b9b6b', fontSize: '14px' }}>
+        <p className="mt-2" style={{ color: 'var(--icon-muted)', fontSize: '14px' }}>
           Top-down thermal health map — hover cells to inspect. Green dot tracks live drone position.
         </p>
       </div>
 
-      <div className="agri-card p-1 relative overflow-hidden" style={{ border: '1px solid #1c3a1c' }}>
+      <div className="agri-card p-1 relative overflow-hidden" style={{ border: '1px solid var(--neon-green-dim)' }}>
         <div className="relative" style={{ height: '340px' }}>
           <canvas
             ref={canvasRef}
@@ -254,36 +264,36 @@ export default function FieldHealthMap() {
             >
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-2.5 h-2.5 rounded-sm" style={{ background: healthColor(hovered.health) }} />
-                <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#e8f5e8', fontWeight: 600 }}>
+                <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--term-text)', fontWeight: 600 }}>
                   {hovered.disease ?? 'Healthy'}
                 </span>
               </div>
-              <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b' }}>
-                Health: <span style={{ color: hovered.health > 0.6 ? '#39ff14' : '#ff3030' }}>{(hovered.health * 100).toFixed(1)}%</span>
+              <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--icon-muted)' }}>
+                Health: <span style={{ color: hovered.health > 0.6 ? 'var(--neon-green)' : 'var(--neon-red)' }}>{(hovered.health * 100).toFixed(1)}%</span>
               </div>
-              <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--icon-muted)' }}>
                 Cell: ({hovered.x}, {hovered.y})
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid #1c3a1c' }}>
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--neon-green-dim)' }}>
           <div className="flex items-center gap-4">
-            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b', letterSpacing: '0.06em' }}>HEALTH INDEX</span>
+            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--icon-muted)', letterSpacing: '0.06em' }}>HEALTH INDEX</span>
             <div className="flex items-center gap-1.5">
-              {['#ff2020', '#ff6020', '#ffaa20', '#1a6a18', '#22a018'].map((c, i) => (
+              {['var(--neon-red)', 'var(--neon-orange)', 'var(--neon-amber)', '#1a6a18', '#22a018'].map((c, i) => (
                 <div key={i} className="w-5 h-2.5 rounded-sm" style={{ background: c }} />
               ))}
             </div>
             <div className="flex gap-4">
-              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#ff2020' }}>Critical</span>
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--neon-red)' }}>Critical</span>
               <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#22a018' }}>Healthy</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full border-2" style={{ borderColor: '#39ff14', background: '#39ff14' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b9b6b' }}>Drone position</span>
+            <div className="w-3 h-3 rounded-full border-2" style={{ borderColor: 'var(--neon-green)', background: 'var(--neon-green)' }} />
+            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--icon-muted)' }}>Drone position</span>
           </div>
         </div>
       </div>

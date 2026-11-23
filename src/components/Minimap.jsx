@@ -1,5 +1,9 @@
 import { useEffect, useRef } from 'react'
 
+function neonGreen() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--neon-green').trim() || '#39ff14'
+}
+
 /**
  * Simulated 2D mission minimap. Draws the survey field boundary, a faint grid,
  * the flown-path trail and the live drone position (green dot, matching the
@@ -62,8 +66,8 @@ export default function Minimap({ getPosition, size = 104 }) {
         }
 
         // Drone dot with glow
-        ctx.fillStyle = '#39ff14'
-        ctx.shadowColor = '#39ff14'
+        ctx.fillStyle = neonGreen()
+        ctx.shadowColor = neonGreen()
         ctx.shadowBlur = 6
         ctx.beginPath()
         ctx.arc(px, py, 3, 0, Math.PI * 2)

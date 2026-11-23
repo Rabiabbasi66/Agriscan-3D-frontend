@@ -7,13 +7,13 @@ import { useAuth } from '../context/AuthContext';
 
 const PAGE_SIZE = 20; // matches the history API default bounds
 
-function StatCard({ label, value, tone = '#e8f5e8' }) {
+function StatCard({ label, value, tone = 'var(--term-text)' }) {
   return (
     <div className="agri-card p-3">
       <div
         style={{
           fontFamily: 'JetBrains Mono, monospace', fontSize: '9px',
-          color: '#6b9b6b', letterSpacing: '0.06em', textTransform: 'uppercase',
+          color: 'var(--icon-muted)', letterSpacing: '0.06em', textTransform: 'uppercase',
         }}
       >
         {label}
@@ -126,13 +126,13 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        <h2 className="font-display font-700 tracking-widest" style={{ fontSize: '28px', color: '#e8f5e8' }}>
+        <h2 className="font-display font-700 tracking-widest" style={{ fontSize: '28px', color: 'var(--term-text)' }}>
           FIELD ANALYTICS
         </h2>
         <span
           className="px-2 py-0.5 rounded text-[10px]"
           style={{
-            border: '1px solid rgba(57,255,20,0.3)', color: '#39ff14',
+            border: '1px solid rgba(57,255,20,0.3)', color: 'var(--neon-green)',
             background: 'rgba(57,255,20,0.1)',
             fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.08em',
           }}
@@ -142,12 +142,12 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
       </div>
 
       {status === 'loading' && (
-        <p className="text-sm" style={{ color: '#6b9b6b' }}>Loading analytics…</p>
+        <p className="text-sm" style={{ color: 'var(--icon-muted)' }}>Loading analytics…</p>
       )}
 
       {status === 'error' && (
         <div className="agri-card p-4">
-          <p className="text-sm" style={{ color: '#ff9020' }}>
+          <p className="text-sm" style={{ color: 'var(--neon-orange)' }}>
             Could not load analytics. Please try again later.
           </p>
         </div>
@@ -160,8 +160,8 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
             {hasHistory && (
               <>
                 <StatCard label="Saved Predictions" value={String(stats.total)} />
-                <StatCard label="Healthy" value={String(stats.healthy)} tone="#39ff14" />
-                <StatCard label="Diseased" value={String(stats.diseased)} tone="#ff3030" />
+                <StatCard label="Healthy" value={String(stats.healthy)} tone="var(--neon-green)" />
+                <StatCard label="Diseased" value={String(stats.diseased)} tone="var(--neon-red)" />
               </>
             )}
             {!hasHistory && (
@@ -174,7 +174,7 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
               <StatCard
                 label="Sign In"
                 value="For history stats"
-                tone="#6b9b6b"
+                tone="var(--icon-muted)"
               />
             )}
           </div>
@@ -184,7 +184,7 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
               <div
                 style={{
                   fontFamily: 'JetBrains Mono, monospace', fontSize: '11px',
-                  color: '#39ff14', letterSpacing: '0.1em', textTransform: 'uppercase',
+                  color: 'var(--neon-green)', letterSpacing: '0.1em', textTransform: 'uppercase',
                   marginBottom: '10px',
                 }}
               >
@@ -193,7 +193,7 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
               <div className="flex flex-col gap-2">
                 {stats.distribution.map(([name, info]) => {
                   const pct = stats.total > 0 ? Math.round((info.count / stats.total) * 100) : 0;
-                  const color = info.healthy ? '#39ff14' : '#ff3030';
+                  const color = info.healthy ? 'var(--neon-green)' : 'var(--neon-red)';
                   return (
                     <button
                       key={name}
@@ -204,14 +204,14 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
                       title={info.healthy ? 'Healthy class' : 'Disease class'}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#e8f5e8' }}>
+                        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: 'var(--term-text)' }}>
                           {name.replace(/_/g, ' ')}
                         </span>
                         <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color }}>
                           {info.count} · {pct}%
                         </span>
                       </div>
-                      <div style={{ height: '4px', background: '#122012', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ height: '4px', background: 'var(--term-bg)', borderRadius: '2px', overflow: 'hidden' }}>
                         <div style={{
                           height: '100%', width: `${pct}%`,
                           background: color, borderRadius: '2px',
@@ -223,7 +223,7 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
                 })}
               </div>
               {stats.latest && (
-                <p className="text-xs mt-3" style={{ color: '#6b9b6b', fontFamily: 'JetBrains Mono, monospace' }}>
+                <p className="text-xs mt-3" style={{ color: 'var(--icon-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
                   Last saved scan: {formatWhen(new Date(stats.latest).toISOString())}
                 </p>
               )}
@@ -231,7 +231,7 @@ export default function FieldAnalytics({ onDetectionSelect = null }) {
           )}
 
           {!isLoggedIn && (
-            <p className="text-xs mt-3" style={{ color: '#6b9b6b' }}>
+            <p className="text-xs mt-3" style={{ color: 'var(--icon-muted)' }}>
               Sign in to see analytics for your saved prediction history.
             </p>
           )}
