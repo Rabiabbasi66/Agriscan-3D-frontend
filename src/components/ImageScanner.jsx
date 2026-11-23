@@ -1,5 +1,6 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { predictDisease, normalizePrediction } from '../services/api';
+import GreennessHeatmap from './GreennessHeatmap';
 
 const SEV_COLOR = {
   high: '#ff2020',
@@ -650,6 +651,8 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
               </div>
             )}
           </div>
+
+          {imageSrc && <GreennessHeatmap src={imageSrc} />}
 
           {scanState === 'done' && (
             <div className="flex items-center gap-5 mt-3 px-1">
