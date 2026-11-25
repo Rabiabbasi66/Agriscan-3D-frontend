@@ -17,7 +17,6 @@ const formatPosition = (p) => `x ${p.x.toFixed(1)} · z ${p.z.toFixed(1)}`
 export default function FarmViewer3D({ detections = null, selectedDetectionId: selectedDetectionIdProp = null, onSelectionChange = null, scrollProgress = 0, flightPattern = 'lissajous', missionSpeed = null, missionRunning = null }) {
   const mountRef = useRef(null)
   const controllerRef = useRef(null)
-  const [webgpu, setWebgpu] = useState(null)
   const [scanning, setScanning] = useState(true)
   const [droneSpeed, setDroneSpeed] = useState(0.004)
   const [selectedMeta, setSelectedMeta] = useState(null)
@@ -80,11 +79,7 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
     }
   }, [selectedDetectionIdProp, focusAiMarker])
 
-  // WebGPU capability badge (informational — renderer is WebGL).
   const [webglError, setWebglError] = useState(false)
-  useEffect(() => {
-    setWebgpu('gpu' in navigator)
-  }, [])
 
   // Honour OS-level reduced-motion preference for sway/pulse/wind effects.
   useEffect(() => {
@@ -299,12 +294,12 @@ export default function FarmViewer3D({ detections = null, selectedDetectionId: s
         )}
       </div>
 
-      {/* Top Right: WebGPU capability */}
+      {/* Top Right: renderer badge (WebGL) */}
       <div className="absolute top-3 right-2 md:right-4 z-10">
         <div className="glass-panel px-2 py-1 md:px-2.5 flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ background: webgpu ? 'var(--primary)' : 'var(--muted-foreground)' }} />
-          <span style={{ fontFamily: 'monospace', fontSize: '9px', color: webgpu ? 'var(--primary)' : 'var(--muted-foreground)', letterSpacing: '0.06em' }}>
-            {webgpu === null ? 'DETECTING...' : webgpu ? 'WEBGPU' : 'WEBGL'}
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--primary)' }} />
+          <span style={{ fontFamily: 'monospace', fontSize: '9px', color: 'var(--primary)', letterSpacing: '0.06em' }}>
+            WEBGL
           </span>
         </div>
       </div>

@@ -95,7 +95,7 @@ function TechBanner() {
   const items = [
     { label: 'AI Engine', value: 'YOLOv8' },
     { label: '3D Renderer', value: 'Three.js r160' },
-    { label: 'WebGL / WebGPU', value: 'Active' },
+    { label: 'WebGL', value: 'Active' },
     { label: 'Backend API', value: 'FastAPI' },
     { label: 'Frontend', value: 'React 18' },
     { label: 'Latency', value: '< 340ms' },
@@ -137,7 +137,7 @@ function Footer() {
             AGRI<span style={{ color: 'var(--primary)' }}>SCAN</span> <span style={{ color: 'var(--muted-foreground)', fontSize: '14px' }}>3D</span>
           </div>
           <p className="max-w-md" style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.06em', lineHeight: 1.6, overflowWrap: 'break-word' }}>
-            Final Year Project · AgriScan 3D: WebGPU-Based Virtual Drone Crop Mapping with AI-Powered Disease Detection
+            Final Year Project · AgriScan 3D: WebGL-Based Virtual Drone Crop Mapping with AI-Powered Disease Detection
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 md:gap-8">

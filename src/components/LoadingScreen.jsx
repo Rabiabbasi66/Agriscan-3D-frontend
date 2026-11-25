@@ -101,7 +101,7 @@ export default function LoadingScreen({ visible = true, progress = 0 }) {
             maxWidth: 'min(560px, 88vw)',
           }}
         >
-          WebGPU-Based Virtual Drone<br />
+          WebGL-Based Virtual Drone<br />
           Crop Mapping with AI-Powered Disease Detection
         </p>
       </div>

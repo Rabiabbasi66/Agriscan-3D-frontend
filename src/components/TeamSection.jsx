@@ -39,11 +39,11 @@ const TEAM = [
   {
   name: 'Seemab Jadoon',
   role: '3D Visualization Engineer',
-  focus: 'Three.js · WebGPU · 3D Farm Visualization',
-  bio: 'Designs and develops the interactive 3D farm visualization system using Three.js and WebGPU. Responsible for terrain rendering, realistic lighting, camera controls, field visualization, and performance optimization to deliver an immersive crop monitoring experience.',
+  focus: 'Three.js · WebGL · 3D Farm Visualization',
+  bio: 'Designs and develops the interactive 3D farm visualization system using Three.js and WebGL. Responsible for terrain rendering, realistic lighting, camera controls, field visualization, and performance optimization to deliver an immersive crop monitoring experience.',
   skills: [
     'Three.js',
-    'WebGPU',
+    'WebGL',
     'GLSL Shaders',
     '3D Rendering',
     'Terrain Generation',
@@ -58,7 +58,7 @@ const TEAM = [
     'Field visualization',
     'Camera controls',
     'Lighting & shadows',
-    'WebGPU rendering',
+    'WebGL rendering',
     '3D animations',
     'Performance optimization',
     'Interactive 3D environment'
