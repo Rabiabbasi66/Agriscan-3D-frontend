@@ -69,6 +69,19 @@ const MONO_LABEL = {
 const MAX_UPLOAD_EDGE = 1280
 const UPLOAD_JPEG_QUALITY = 0.92
 
+// CSP connect-src does not allow data: URLs, so fetch(dataUrl) is blocked.
+// Decode the base64 payload manually instead.
+function dataUrlToBlob(dataUrl) {
+  const comma = dataUrl.indexOf(',')
+  const header = dataUrl.slice(0, comma)
+  const mime = (header.match(/data:([^;,]+)/) || [])[1] || 'image/jpeg'
+  const data = dataUrl.slice(comma + 1)
+  const bin = atob(data)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new Blob([bytes], { type: mime })
+}
+
 async function downscaleForUpload(file) {
   if (!file || !file.type || !file.type.startsWith('image/')) return file
   try {
@@ -191,9 +204,12 @@ export default function ImageScanner({ onScanComplete, onDetectionSelect, select
     try {
       // fetch() can reject (offline sample photo, revoked URL, blocked
       // network) — the catch below keeps the UI out of a stuck "scanning".
-      const response = await fetch(src);
-      const blob = await response.blob();
-      const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
+      // Uploaded images arrive as data: URLs which CSP connect-src blocks,
+      // so those are decoded directly.
+      const blob = src.startsWith('data:')
+        ? dataUrlToBlob(src)
+        : await (await fetch(src)).blob();
+      const file = new File([blob], 'image.jpg', { type: blob.type || 'image/jpeg' });
 
       const uploadFile = await downscaleForUpload(file)
       const result = await predictDisease(uploadFile);
